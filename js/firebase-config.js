@@ -3,10 +3,10 @@
 // この値はクライアント側に公開されますが、Firestore/Storageのセキュリティルールで
 // アクセス制御を行うため、そのままGitHubに公開して問題ありません。
 export const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID",
+  apiKey: "AIzaSyB9Ww0FtgfIyQh1OADikfjW_5yZPW5ArzQ",
+  authDomain: "niiza-gs-app.firebaseapp.com",
+  projectId: "niiza-gs-app",
+  storageBucket: "niiza-gs-app.firebasestorage.app",
+  messagingSenderId: "900444170329",
+  appId: "1:900444170329:web:7c3a37eb2ca430eda02948",
 };
