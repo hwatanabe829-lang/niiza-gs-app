@@ -219,20 +219,6 @@ main {
   margin-top: 6px;
 }
 
-.photo-gallery {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 6px;
-}
-
-.photo-gallery img {
-  width: 100px;
-  height: 100px;
-  object-fit: cover;
-  border-radius: 6px;
-}
-
 /* フォーム */
 form .field {
   margin-bottom: 10px;

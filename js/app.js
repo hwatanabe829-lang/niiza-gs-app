@@ -41,7 +41,6 @@ const modalStatus = document.getElementById("modalStatus");
 const modalLocationName = document.getElementById("modalLocationName");
 const modalContent = document.getElementById("modalContent");
 const modalNotes = document.getElementById("modalNotes");
-const photoGallery = document.getElementById("photoGallery");
 const feedbackForm = document.getElementById("feedbackForm");
 const feedbackList = document.getElementById("feedbackList");
 
@@ -127,14 +126,6 @@ async function openDetail(dateStr) {
   modalLocationName.textContent = data.location?.name || "(未設定)";
   modalContent.textContent = data.content || "(未設定)";
   modalNotes.textContent = data.notes || "(未設定)";
-
-  photoGallery.innerHTML = "";
-  (data.photos || []).forEach((url) => {
-    const img = document.createElement("img");
-    img.src = url;
-    img.alt = "活動写真";
-    photoGallery.appendChild(img);
-  });
 
   renderMap(data.location);
   loadFeedback(dateStr);

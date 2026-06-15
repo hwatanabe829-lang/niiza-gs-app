@@ -11,12 +11,6 @@ import {
   getDoc,
   setDoc,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import {
-  getStorage,
-  ref,
-  uploadBytes,
-  getDownloadURL,
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 import { firebaseConfig } from "./firebase-config.js";
 import {
   getFiscalYearActivityDates,
@@ -28,7 +22,6 @@ import {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const storage = getStorage(app);
 
 const activityDates = new Set(getFiscalYearActivityDates());
 const months = getFiscalYearMonths();
@@ -60,14 +53,11 @@ const editStatus = document.getElementById("editStatus");
 const editLocationName = document.getElementById("editLocationName");
 const editContent = document.getElementById("editContent");
 const editNotes = document.getElementById("editNotes");
-const editPhotos = document.getElementById("editPhotos");
-const editPhotoGallery = document.getElementById("editPhotoGallery");
 const editLatLng = document.getElementById("editLatLng");
 const saveResult = document.getElementById("saveResult");
 
 let currentDateStr = null;
 let currentLocation = null;
-let currentPhotos = [];
 let adminMap = null;
 let adminMarker = null;
 
@@ -113,7 +103,6 @@ setupBtn.addEventListener("click", async () => {
         location: { name: "", lat: null, lng: null },
         content: "",
         notes: "",
-        photos: [],
       });
       created++;
     }
@@ -217,9 +206,7 @@ async function openEdit(dateStr) {
   currentLocation = data.location?.lat
     ? { lat: data.location.lat, lng: data.location.lng }
     : null;
-  currentPhotos = data.photos || [];
 
-  renderPhotoGallery();
   updateLatLngLabel();
   editModal.classList.remove("hidden");
 
@@ -259,40 +246,6 @@ function initAdminMap(location) {
   setTimeout(() => adminMap.invalidateSize(), 100);
 }
 
-function renderPhotoGallery() {
-  editPhotoGallery.innerHTML = "";
-  currentPhotos.forEach((url, idx) => {
-    const wrapper = document.createElement("div");
-    wrapper.style.position = "relative";
-
-    const img = document.createElement("img");
-    img.src = url;
-    wrapper.appendChild(img);
-
-    const removeBtn = document.createElement("button");
-    removeBtn.type = "button";
-    removeBtn.textContent = "×";
-    removeBtn.title = "削除";
-    removeBtn.style.position = "absolute";
-    removeBtn.style.top = "2px";
-    removeBtn.style.right = "2px";
-    removeBtn.style.background = "rgba(0,0,0,0.6)";
-    removeBtn.style.color = "#fff";
-    removeBtn.style.border = "none";
-    removeBtn.style.borderRadius = "50%";
-    removeBtn.style.width = "20px";
-    removeBtn.style.height = "20px";
-    removeBtn.style.cursor = "pointer";
-    removeBtn.addEventListener("click", () => {
-      currentPhotos.splice(idx, 1);
-      renderPhotoGallery();
-    });
-    wrapper.appendChild(removeBtn);
-
-    editPhotoGallery.appendChild(wrapper);
-  });
-}
-
 closeEditBtn.addEventListener("click", () => editModal.classList.add("hidden"));
 editModal.addEventListener("click", (e) => {
   if (e.target === editModal) editModal.classList.add("hidden");
@@ -301,16 +254,6 @@ editModal.addEventListener("click", (e) => {
 editForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   saveResult.textContent = "保存中...";
-
-  // 新規アップロード画像
-  const files = editPhotos.files;
-  for (const file of files) {
-    const path = `activity-photos/${currentDateStr}/${Date.now()}_${file.name}`;
-    const fileRef = ref(storage, path);
-    await uploadBytes(fileRef, file);
-    const url = await getDownloadURL(fileRef);
-    currentPhotos.push(url);
-  }
 
   await setDoc(
     doc(db, "activities", currentDateStr),
@@ -324,13 +267,10 @@ editForm.addEventListener("submit", async (e) => {
       },
       content: editContent.value.trim(),
       notes: editNotes.value.trim(),
-      photos: currentPhotos,
     },
     { merge: true }
   );
 
-  editPhotos.value = "";
-  renderPhotoGallery();
   saveResult.textContent = "保存しました。";
   renderCalendar();
 });
