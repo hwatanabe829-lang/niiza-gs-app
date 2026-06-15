@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>管理者画面 | 新座市グリーンサポーター</title>
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+</head>
+<body>
+<header class="app-header">
+  <h1>🌳 GS活動 管理者画面</h1>
+  <a href="index.html">カレンダーに戻る</a>
+</header>
+
+<main>
+  <!-- ログインフォーム -->
+  <div class="login-card" id="loginCard">
+    <h2>管理者ログイン</h2>
+    <form id="loginForm">
+      <div class="field">
+        <label for="loginEmail">メールアドレス</label>
+        <input type="email" id="loginEmail" required>
+      </div>
+      <div class="field">
+        <label for="loginPassword">パスワード</label>
+        <input type="password" id="loginPassword" required>
+      </div>
+      <button type="submit" class="btn">ログイン</button>
+      <p class="error-msg hidden" id="loginError"></p>
+    </form>
+    <p class="help-text">
+      管理者アカウントはFirebase Authenticationで発行してください(README参照)。
+    </p>
+  </div>
+
+  <!-- 管理パネル -->
+  <div id="adminPanel" class="hidden">
+    <div class="app-header" style="border-radius:8px; margin-bottom:12px;">
+      <span id="loggedInUser"></span>
+      <button class="btn secondary" id="logoutBtn">ログアウト</button>
+    </div>
+
+    <p class="notice">
+      日付をクリックすると、その日の活動情報を編集できます。<br>
+      「初回セットアップ」を押すと、令和8年度の活動予定日(第一水曜・第二以降木曜)を一括登録します。
+    </p>
+
+    <button class="btn" id="setupBtn">初回セットアップ(令和8年度の活動日を一括登録)</button>
+    <p class="help-text" id="setupResult"></p>
+
+    <div class="calendar-nav">
+      <button id="prevMonthBtn">&lt; 前月</button>
+      <div class="month-label" id="monthLabel"></div>
+      <button id="nextMonthBtn">次月 &gt;</button>
+    </div>
+
+    <div class="calendar-grid" id="calendarGrid"></div>
+  </div>
+</main>
+
+<!-- 編集モーダル -->
+<div class="modal-overlay hidden" id="editModal">
+  <div class="modal">
+    <button class="close-btn" id="closeEditBtn">&times;</button>
+    <h2 id="editDate"></h2>
+
+    <form id="editForm">
+      <div class="field">
+        <label for="editStatus">活動状況</label>
+        <select id="editStatus">
+          <option value="予定">予定</option>
+          <option value="中止">中止(雨天等)</option>
+          <option value="延期">延期</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="editLocationName">活動場所名</label>
+        <input type="text" id="editLocationName" placeholder="例: 新座市営第3緑地">
+      </div>
+
+      <div class="field">
+        <label>地図をクリックして活動場所を設定</label>
+        <div id="admin-map"></div>
+        <p class="help-text" id="editLatLng">緯度・経度: 未設定</p>
+      </div>
+
+      <div class="field">
+        <label for="editContent">活動内容</label>
+        <textarea id="editContent" placeholder="例: 草刈り、清掃、剪定作業など"></textarea>
+      </div>
+
+      <div class="field">
+        <label for="editNotes">注意点</label>
+        <textarea id="editNotes" placeholder="例: 動きやすい服装・軍手・飲み物をご持参ください"></textarea>
+      </div>
+
+      <div class="field">
+        <label for="editPhotos">写真を追加</label>
+        <input type="file" id="editPhotos" accept="image/*" multiple>
+        <div class="photo-gallery" id="editPhotoGallery"></div>
+      </div>
+
+      <button type="submit" class="btn">保存</button>
+      <p class="help-text" id="saveResult"></p>
+    </form>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script type="module" src="js/admin.js"></script>
+</body>
+</html>

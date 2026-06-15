@@ -1,0 +1,19 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 活動情報: 誰でも閲覧可、書き込みは管理者(ログイン済み)のみ
+    match /activities/{activityId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+
+      // 感想・改善点: 誰でも閲覧・新規投稿可。更新・削除は不可(投稿の改ざん防止)
+      match /feedbacks/{feedbackId} {
+        allow read: if true;
+        allow create: if request.resource.data.comment is string
+                       && request.resource.data.comment.size() > 0
+                       && request.resource.data.comment.size() < 1000;
+        allow update, delete: if request.auth != null;
+      }
+    }
+  }
+}

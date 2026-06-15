@@ -1,0 +1,346 @@
+:root {
+  --green: #2e7d32;
+  --green-light: #e8f5e9;
+  --green-dark: #1b5e20;
+  --orange: #ef6c00;
+  --red: #c62828;
+  --gray: #757575;
+  --border: #dcdcdc;
+  --bg: #f4f7f3;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif;
+  background: var(--bg);
+  color: #222;
+  line-height: 1.6;
+}
+
+.app-header {
+  background: var(--green);
+  color: #fff;
+  padding: 16px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 1.3rem;
+}
+
+.app-header a {
+  color: #fff;
+  text-decoration: none;
+  border: 1px solid #fff;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.app-header a:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+main {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+/* カレンダー */
+.calendar-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin: 16px 0;
+}
+
+.calendar-nav button {
+  background: var(--green);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.calendar-nav button:disabled {
+  background: #bdbdbd;
+  cursor: not-allowed;
+}
+
+.calendar-nav .month-label {
+  font-size: 1.2rem;
+  font-weight: bold;
+  min-width: 140px;
+  text-align: center;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  background: #fff;
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.calendar-grid .weekday {
+  text-align: center;
+  font-weight: bold;
+  color: var(--gray);
+  padding: 6px 0;
+  font-size: 0.85rem;
+}
+
+.calendar-grid .weekday.sun {
+  color: var(--red);
+}
+
+.calendar-grid .weekday.sat {
+  color: #1565c0;
+}
+
+.day-cell {
+  min-height: 64px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px;
+  font-size: 0.85rem;
+  position: relative;
+}
+
+.day-cell.empty {
+  border: none;
+}
+
+.day-cell .date-num {
+  font-weight: bold;
+}
+
+.day-cell.activity {
+  background: var(--green-light);
+  cursor: pointer;
+  border-color: var(--green);
+}
+
+.day-cell.activity:hover {
+  background: #c8e6c9;
+}
+
+.day-cell .status-mark {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  border-radius: 10px;
+  color: #fff;
+}
+
+.status-mark.status-予定 {
+  background: var(--green);
+}
+
+.status-mark.status-中止 {
+  background: var(--red);
+}
+
+.status-mark.status-延期 {
+  background: var(--orange);
+}
+
+/* モーダル */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 1000;
+}
+
+.modal-overlay.hidden {
+  display: none;
+}
+
+.modal {
+  background: #fff;
+  border-radius: 10px;
+  padding: 20px;
+  max-width: 520px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal h2 {
+  margin-top: 0;
+  color: var(--green-dark);
+}
+
+.modal .close-btn {
+  float: right;
+  background: none;
+  border: none;
+  font-size: 1.4rem;
+  cursor: pointer;
+  color: var(--gray);
+}
+
+.modal-section {
+  margin: 12px 0;
+}
+
+.modal-section h3 {
+  margin: 0 0 6px;
+  font-size: 0.95rem;
+  color: var(--green-dark);
+  border-left: 4px solid var(--green);
+  padding-left: 8px;
+}
+
+#map, #admin-map {
+  height: 220px;
+  border-radius: 6px;
+  margin-top: 6px;
+}
+
+.photo-gallery {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.photo-gallery img {
+  width: 100px;
+  height: 100px;
+  object-fit: cover;
+  border-radius: 6px;
+}
+
+/* フォーム */
+form .field {
+  margin-bottom: 10px;
+}
+
+form label {
+  display: block;
+  font-weight: bold;
+  margin-bottom: 4px;
+  font-size: 0.9rem;
+}
+
+form input[type="text"],
+form input[type="email"],
+form input[type="password"],
+form input[type="number"],
+form textarea,
+form select {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.95rem;
+}
+
+form textarea {
+  resize: vertical;
+  min-height: 70px;
+}
+
+.btn {
+  background: var(--green);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 18px;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.btn:hover {
+  background: var(--green-dark);
+}
+
+.btn.secondary {
+  background: var(--gray);
+}
+
+.btn.danger {
+  background: var(--red);
+}
+
+/* 感想一覧 */
+.feedback-list {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+}
+
+.feedback-list li {
+  background: var(--green-light);
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin-bottom: 6px;
+  font-size: 0.9rem;
+}
+
+.feedback-list .feedback-name {
+  font-weight: bold;
+  color: var(--green-dark);
+  margin-right: 6px;
+}
+
+/* 管理者ログイン */
+.login-card {
+  max-width: 360px;
+  margin: 60px auto;
+  background: #fff;
+  padding: 24px;
+  border-radius: 10px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.login-card h2 {
+  margin-top: 0;
+  color: var(--green-dark);
+}
+
+.error-msg {
+  color: var(--red);
+  font-size: 0.9rem;
+  margin-top: 8px;
+}
+
+.notice {
+  background: #fff8e1;
+  border: 1px solid #ffe082;
+  border-radius: 6px;
+  padding: 10px 14px;
+  font-size: 0.9rem;
+  margin-bottom: 16px;
+}
+
+.hidden {
+  display: none !important;
+}
+
+.help-text {
+  font-size: 0.8rem;
+  color: var(--gray);
+}
