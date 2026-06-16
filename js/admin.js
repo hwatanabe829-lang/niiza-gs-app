@@ -178,19 +178,65 @@ function renderLocationList() {
   locationsList.forEach((loc, i) => {
     const row = document.createElement("div");
     row.className = "settings-item";
+    row.dataset.index = i;
+
     const coordStr = loc.lat ? ` (${Number(loc.lat).toFixed(4)}, ${Number(loc.lng).toFixed(4)})` : "";
-    row.innerHTML = `<span>${loc.name}${coordStr}</span>`;
+    const viewHtml = `<span class="loc-view">${loc.name}${coordStr}</span>`;
+    const editHtml = `
+      <div class="loc-edit" style="display:none; flex:1; gap:4px; flex-wrap:wrap; align-items:center;">
+        <input type="text" class="loc-edit-name" value="${loc.name}" placeholder="場所名" style="flex:1; min-width:120px;">
+        <input type="number" class="loc-edit-lat" value="${loc.lat || ''}" placeholder="緯度" step="any" style="width:100px;">
+        <input type="number" class="loc-edit-lng" value="${loc.lng || ''}" placeholder="経度" step="any" style="width:100px;">
+      </div>`;
+    row.innerHTML = viewHtml + editHtml;
+
+    // 編集ボタン
+    const editBtn = document.createElement("button");
+    editBtn.type = "button";
+    editBtn.className = "btn btn-sm";
+    editBtn.textContent = "編集";
+    editBtn.addEventListener("click", () => {
+      const isEditing = row.querySelector(".loc-edit").style.display !== "none";
+      if (!isEditing) {
+        row.querySelector(".loc-view").style.display = "none";
+        row.querySelector(".loc-edit").style.display = "flex";
+        editBtn.textContent = "保存";
+        delBtn.textContent = "キャンセル";
+      } else {
+        const newName = row.querySelector(".loc-edit-name").value.trim();
+        const newLat = parseFloat(row.querySelector(".loc-edit-lat").value) || null;
+        const newLng = parseFloat(row.querySelector(".loc-edit-lng").value) || null;
+        if (!newName) return;
+        locationsList[i] = { name: newName, lat: newLat, lng: newLng };
+        saveLocations().then(() => {
+          renderLocationList();
+          renderLocationDropdown();
+        }).catch(() => alert("保存に失敗しました"));
+      }
+    });
+
+    // 削除/キャンセルボタン
     const delBtn = document.createElement("button");
     delBtn.type = "button";
     delBtn.className = "btn danger btn-sm";
     delBtn.textContent = "削除";
     delBtn.addEventListener("click", async () => {
+      if (row.querySelector(".loc-edit").style.display !== "none") {
+        // キャンセル
+        row.querySelector(".loc-view").style.display = "";
+        row.querySelector(".loc-edit").style.display = "none";
+        editBtn.textContent = "編集";
+        delBtn.textContent = "削除";
+        return;
+      }
       if (!confirm(`「${loc.name}」を削除しますか？`)) return;
       locationsList.splice(i, 1);
       await saveLocations();
       renderLocationList();
       renderLocationDropdown();
     });
+
+    row.appendChild(editBtn);
     row.appendChild(delBtn);
     container.appendChild(row);
   });
@@ -286,17 +332,62 @@ function renderActivityTypeList() {
   activityTypesList.forEach((type, i) => {
     const row = document.createElement("div");
     row.className = "settings-item";
-    row.innerHTML = `<span>${type}</span>`;
+
+    const viewSpan = document.createElement("span");
+    viewSpan.className = "act-view";
+    viewSpan.textContent = type;
+
+    const editInput = document.createElement("input");
+    editInput.type = "text";
+    editInput.className = "act-edit";
+    editInput.value = type;
+    editInput.style.display = "none";
+    editInput.style.flex = "1";
+
+    const editBtn = document.createElement("button");
+    editBtn.type = "button";
+    editBtn.className = "btn btn-sm";
+    editBtn.textContent = "編集";
+    editBtn.addEventListener("click", async () => {
+      if (editInput.style.display === "none") {
+        viewSpan.style.display = "none";
+        editInput.style.display = "";
+        editInput.focus();
+        editBtn.textContent = "保存";
+        delBtn.textContent = "キャンセル";
+      } else {
+        const newVal = editInput.value.trim();
+        if (!newVal) return;
+        activityTypesList[i] = newVal;
+        try {
+          await saveActivityTypes();
+          renderActivityTypeList();
+          renderActivityTypeDropdown();
+        } catch { alert("保存に失敗しました"); }
+      }
+    });
+
     const delBtn = document.createElement("button");
     delBtn.type = "button";
     delBtn.className = "btn danger btn-sm";
     delBtn.textContent = "削除";
     delBtn.addEventListener("click", async () => {
+      if (editInput.style.display !== "none") {
+        viewSpan.style.display = "";
+        editInput.style.display = "none";
+        editBtn.textContent = "編集";
+        delBtn.textContent = "削除";
+        return;
+      }
       activityTypesList.splice(i, 1);
       await saveActivityTypes();
       renderActivityTypeList();
       renderActivityTypeDropdown();
     });
+
+    row.appendChild(viewSpan);
+    row.appendChild(editInput);
+    row.appendChild(editBtn);
     row.appendChild(delBtn);
     container.appendChild(row);
   });
