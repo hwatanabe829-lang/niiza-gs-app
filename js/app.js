@@ -70,16 +70,31 @@ async function fetchWeather() {
     const url =
       "https://api.open-meteo.com/v1/forecast" +
       "?latitude=35.7768&longitude=139.5703" +
-      "&daily=temperature_2m_max,temperature_2m_min,weathercode" +
+      "&hourly=temperature_2m,precipitation_probability,weathercode" +
       "&timezone=Asia%2FTokyo&forecast_days=16";
     const res = await fetch(url);
     const data = await res.json();
-    const { time, temperature_2m_max, temperature_2m_min, weathercode } = data.daily;
-    time.forEach((d, i) => {
-      weatherCache.set(d, {
-        max: Math.round(temperature_2m_max[i]),
-        min: Math.round(temperature_2m_min[i]),
-        code: weathercode[i],
+    const { time, temperature_2m, precipitation_probability, weathercode } = data.hourly;
+
+    // 9:00〜12:00の時間帯のみ抽出して日付ごとに集計
+    const byDate = new Map();
+    time.forEach((t, i) => {
+      const hour = parseInt(t.slice(11, 13));
+      if (hour < 9 || hour > 12) return;
+      const date = t.slice(0, 10);
+      if (!byDate.has(date)) byDate.set(date, { temps: [], probs: [], codes: [] });
+      const d = byDate.get(date);
+      d.temps.push(temperature_2m[i]);
+      d.probs.push(precipitation_probability[i]);
+      d.codes.push(weathercode[i]);
+    });
+
+    byDate.forEach((d, date) => {
+      weatherCache.set(date, {
+        code: Math.max(...d.codes),
+        minTemp: Math.round(Math.min(...d.temps)),
+        maxTemp: Math.round(Math.max(...d.temps)),
+        prob: Math.max(...d.probs),
       });
     });
   } catch {
@@ -143,7 +158,7 @@ function renderCalendar() {
     if (w) {
       const wEl = document.createElement("div");
       wEl.className = "cell-weather";
-      wEl.textContent = `${weatherEmoji(w.code)} ${w.max}°/${w.min}°`;
+      wEl.textContent = `${weatherEmoji(w.code)} ${w.minTemp}〜${w.maxTemp}° 💧${w.prob}%`;
       cell.appendChild(wEl);
     }
 
