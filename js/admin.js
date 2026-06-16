@@ -45,6 +45,7 @@ let activityTypesList = []; // [string]
 // 編集状態
 let currentDateStr = null;
 let currentLocation = null;
+let editContentItems = []; // 活動内容リスト（複数）
 let adminMap = null;
 let adminMarker = null;
 
@@ -69,7 +70,7 @@ const editStatus = document.getElementById("editStatus");
 const editLocationSelect = document.getElementById("editLocationSelect");
 const editLocationName = document.getElementById("editLocationName");
 const editActivityTypeSelect = document.getElementById("editActivityTypeSelect");
-const editContent = document.getElementById("editContent");
+const editContentInput = document.getElementById("editContentInput");
 const editNotes = document.getElementById("editNotes");
 const editParking = document.getElementById("editParking");
 const editParticipants = document.getElementById("editParticipants");
@@ -467,7 +468,40 @@ document.getElementById("activityTypeForm").addEventListener("submit", async (e)
 editActivityTypeSelect.addEventListener("change", (e) => {
   const idx = e.target.value;
   if (idx === "") return;
-  editContent.value = activityTypesList[parseInt(idx)];
+  editContentInput.value = activityTypesList[parseInt(idx)];
+  editActivityTypeSelect.value = "";
+});
+
+function renderEditContentList() {
+  const ul = document.getElementById("editContentList");
+  ul.innerHTML = "";
+  if (editContentItems.length === 0) {
+    ul.innerHTML = '<li class="help-text" style="list-style:none; padding:4px 0;">（未設定）</li>';
+    return;
+  }
+  editContentItems.forEach((item, i) => {
+    const li = document.createElement("li");
+    li.style.cssText = "display:flex; align-items:center; gap:6px; padding:3px 0;";
+    li.innerHTML = `<span style="flex:1;">${item}</span>`;
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "btn danger btn-sm";
+    btn.textContent = "削除";
+    btn.addEventListener("click", () => {
+      editContentItems.splice(i, 1);
+      renderEditContentList();
+    });
+    li.appendChild(btn);
+    ul.appendChild(li);
+  });
+}
+
+document.getElementById("addContentBtn").addEventListener("click", () => {
+  const val = editContentInput.value.trim();
+  if (!val) return;
+  editContentItems.push(val);
+  editContentInput.value = "";
+  renderEditContentList();
 });
 
 // ============================================================
@@ -628,6 +662,7 @@ setupBtn.addEventListener("click", async () => {
         date: dateStr,
         status: "予定",
         location: { name: "", lat: null, lng: null },
+        contentList: [],
         content: "",
         notes: "",
         parking: false,
@@ -661,7 +696,15 @@ async function openEdit(dateStr) {
 
   editStatus.value = data.status || "予定";
   editLocationName.value = data.location?.name || "";
-  editContent.value = data.content || "";
+  // 活動内容：配列(contentList)優先、旧string(content)は配列に変換
+  if (Array.isArray(data.contentList) && data.contentList.length > 0) {
+    editContentItems = [...data.contentList];
+  } else if (data.content) {
+    editContentItems = [data.content];
+  } else {
+    editContentItems = [];
+  }
+  renderEditContentList();
   editNotes.value = data.notes || "";
   editParking.checked = data.parking || false;
   editParticipants.value = data.participants || "";
@@ -748,7 +791,8 @@ editForm.addEventListener("submit", async (e) => {
         lat: currentLocation?.lat ?? null,
         lng: currentLocation?.lng ?? null,
       },
-      content: editContent.value.trim(),
+      contentList: editContentItems,
+      content: editContentItems.join("・"), // 後方互換用
       notes: editNotes.value.trim(),
       parking: editParking.checked,
       participants: parseInt(editParticipants.value) || 0,

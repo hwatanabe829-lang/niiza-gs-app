@@ -202,10 +202,14 @@
 
       <div class="field">
         <label>活動内容</label>
-        <select id="editActivityTypeSelect" style="margin-bottom:4px;">
-          <option value="">--- プリセットから選択 ---</option>
-        </select>
-        <textarea id="editContent" placeholder="活動内容（手入力も可）"></textarea>
+        <ul id="editContentList" class="content-edit-list"></ul>
+        <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-top:4px;">
+          <select id="editActivityTypeSelect" style="flex:1; min-width:130px;">
+            <option value="">--- プリセットから選択 ---</option>
+          </select>
+          <input type="text" id="editContentInput" placeholder="手入力で追加" style="flex:1; min-width:130px;">
+          <button type="button" id="addContentBtn" class="btn btn-sm">＋追加</button>
+        </div>
       </div>
 
       <div class="field">

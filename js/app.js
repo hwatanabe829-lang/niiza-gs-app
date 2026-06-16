@@ -232,7 +232,18 @@ async function openDetail(dateStr) {
   modalStatus.textContent = status;
   modalStatus.className = `status-mark status-${status}`;
   modalLocationName.textContent = data.location?.name || "（未設定）";
-  modalContent.textContent = data.content || "（未設定）";
+  // 活動内容：複数対応
+  const contentList = Array.isArray(data.contentList) && data.contentList.length > 0
+    ? data.contentList
+    : data.content ? [data.content] : [];
+  if (contentList.length === 0) {
+    modalContent.innerHTML = "（未設定）";
+  } else if (contentList.length === 1) {
+    modalContent.textContent = contentList[0];
+  } else {
+    modalContent.innerHTML = "<ul style='margin:4px 0 0 16px; padding:0;'>" +
+      contentList.map(c => `<li>${c}</li>`).join("") + "</ul>";
+  }
   modalNotes.textContent = data.notes || "（未設定）";
 
   const parkingSection = document.getElementById("modalParkingSection");
