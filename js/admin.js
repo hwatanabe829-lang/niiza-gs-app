@@ -232,18 +232,24 @@ document.getElementById("locationForm").addEventListener("submit", async (e) => 
   const name = document.getElementById("locName").value.trim();
   let lat = parseFloat(document.getElementById("locLat").value) || null;
   let lng = parseFloat(document.getElementById("locLng").value) || null;
+  const resultEl = document.getElementById("locGeocodeResult");
   if (!name) return;
   if (!lat || !lng) {
-    // 座標未入力の場合は自動ジオコーディングを試みる
     const coords = await geocodeLocation(name);
     if (coords) { lat = coords.lat; lng = coords.lng; }
   }
   locationsList.push({ name, lat, lng });
-  await saveLocations();
-  renderLocationList();
-  renderLocationDropdown();
-  document.getElementById("locGeocodeResult").textContent = "";
-  e.target.reset();
+  try {
+    await saveLocations();
+    renderLocationList();
+    renderLocationDropdown();
+    resultEl.textContent = "";
+    e.target.reset();
+  } catch (err) {
+    locationsList.pop();
+    resultEl.textContent = "❌ 保存失敗: Firestoreのセキュリティルールに settings コレクションの許可が必要です。Firebase Console → Firestore → ルール を確認してください。";
+    resultEl.style.color = "red";
+  }
 });
 
 editLocationSelect.addEventListener("change", (e) => {
@@ -311,10 +317,15 @@ document.getElementById("activityTypeForm").addEventListener("submit", async (e)
   const name = document.getElementById("actTypeName").value.trim();
   if (!name) return;
   activityTypesList.push(name);
-  await saveActivityTypes();
-  renderActivityTypeList();
-  renderActivityTypeDropdown();
-  e.target.reset();
+  try {
+    await saveActivityTypes();
+    renderActivityTypeList();
+    renderActivityTypeDropdown();
+    e.target.reset();
+  } catch (err) {
+    activityTypesList.pop();
+    alert("❌ 保存失敗: Firestoreのセキュリティルールに settings コレクションの許可が必要です。Firebase Console → Firestore → ルール を確認してください。");
+  }
 });
 
 editActivityTypeSelect.addEventListener("change", (e) => {
