@@ -4,6 +4,8 @@ import {
   signInWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
+  setPersistence,
+  inMemoryPersistence,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
   getFirestore,
@@ -24,6 +26,9 @@ import { getHolidayName } from "./holidays.js";
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+
+// 管理ページを開くたびに毎回ログインが必要（セッションを保持しない）
+setPersistence(auth, inMemoryPersistence);
 
 const activityDates = new Set(getFiscalYearActivityDates());
 const months = getFiscalYearMonths();
