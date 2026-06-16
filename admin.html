@@ -29,9 +29,7 @@
       <button type="submit" class="btn">ログイン</button>
       <p class="error-msg hidden" id="loginError"></p>
     </form>
-    <p class="help-text">
-      管理者アカウントはFirebase Authenticationで発行してください(README参照)。
-    </p>
+    <p class="help-text">管理者アカウントはFirebase Authenticationで発行してください(README参照)。</p>
   </div>
 
   <!-- 管理パネル -->
@@ -41,25 +39,117 @@
       <button class="btn secondary" id="logoutBtn">ログアウト</button>
     </div>
 
-    <p class="notice">
-      日付をクリックすると、その日の活動情報を編集できます。<br>
-      「初回セットアップ」を押すと、令和8年度の活動予定日(第一水曜・第二以降木曜)を一括登録します。
-    </p>
-
-    <button class="btn" id="setupBtn">初回セットアップ(令和8年度の活動日を一括登録)</button>
-    <p class="help-text" id="setupResult"></p>
-
-    <div class="calendar-nav">
-      <button id="prevMonthBtn">&lt; 前月</button>
-      <div class="month-label" id="monthLabel"></div>
-      <button id="nextMonthBtn">次月 &gt;</button>
+    <!-- タブバー -->
+    <div class="tab-bar">
+      <button class="tab-btn active" data-tab="calendar">📅 カレンダー</button>
+      <button class="tab-btn" data-tab="settings">⚙️ 設定</button>
+      <button class="tab-btn" data-tab="equipment">🔧 機材・備品</button>
     </div>
 
-    <div class="calendar-grid" id="calendarGrid"></div>
-  </div>
+    <!-- ===== カレンダータブ ===== -->
+    <div id="tab-calendar" class="tab-pane">
+      <p class="notice">
+        活動日（緑）をクリックすると情報を編集できます。<br>
+        「初回セットアップ」を押すと令和8年度の活動予定日を一括登録します。
+      </p>
+      <button class="btn" id="setupBtn">初回セットアップ（令和8年度の活動日を一括登録）</button>
+      <p class="help-text" id="setupResult"></p>
+      <div class="calendar-nav">
+        <button id="prevMonthBtn">&lt; 前月</button>
+        <div class="month-label" id="monthLabel"></div>
+        <button id="nextMonthBtn">次月 &gt;</button>
+      </div>
+      <div class="calendar-grid" id="calendarGrid"></div>
+    </div>
+
+    <!-- ===== 設定タブ ===== -->
+    <div id="tab-settings" class="tab-pane hidden">
+
+      <section class="admin-section">
+        <h3>📍 活動場所リスト</h3>
+        <p class="help-text">登録した場所は活動編集画面のドロップダウンに表示されます。場所を選ぶと地図が自動的にその場所に移動します。</p>
+        <div id="locationList" class="settings-list"></div>
+        <form id="locationForm" class="settings-add-form">
+          <input type="text" id="locName" placeholder="場所名（例: 栄3丁目緑地）" required>
+          <input type="number" id="locLat" placeholder="緯度（例: 35.7768）" step="any">
+          <input type="number" id="locLng" placeholder="経度（例: 139.5703）" step="any">
+          <button type="submit" class="btn">追加</button>
+        </form>
+        <p class="help-text" style="margin-top:6px;">※緯度・経度は <a href="https://maps.google.com" target="_blank">Google マップ</a> で場所を右クリックして確認できます。</p>
+      </section>
+
+      <section class="admin-section">
+        <h3>📋 活動内容リスト</h3>
+        <p class="help-text">登録した内容は活動編集画面の活動内容ドロップダウンに表示されます。</p>
+        <div id="activityTypeList" class="settings-list"></div>
+        <form id="activityTypeForm" class="settings-add-form">
+          <input type="text" id="actTypeName" placeholder="活動内容（例: 草刈り・清掃）" required>
+          <button type="submit" class="btn">追加</button>
+        </form>
+      </section>
+
+    </div>
+
+    <!-- ===== 機材・備品タブ ===== -->
+    <div id="tab-equipment" class="tab-pane hidden">
+      <section class="admin-section">
+        <h3>🥤 備品・食料ストック</h3>
+        <form id="equipmentForm">
+          <div class="field">
+            <label for="eq-drinks">飲み物ストック</label>
+            <textarea id="eq-drinks" placeholder="例: 水 20本、お茶 10本"></textarea>
+          </div>
+          <div class="field">
+            <label for="eq-candy">アメ・お菓子ストック</label>
+            <textarea id="eq-candy" placeholder="例: アメ 2袋、チョコ 1袋"></textarea>
+          </div>
+
+          <h4>🔧 機器保守状況</h4>
+          <div class="equipment-table">
+            <div class="equipment-row">
+              <div class="eq-label">刈払い機</div>
+              <div class="eq-count-wrap">
+                <label>台数</label>
+                <input type="number" id="eq-kari-count" min="0" placeholder="0">
+              </div>
+              <div class="eq-status-wrap">
+                <label>状況・メモ</label>
+                <textarea id="eq-kari-status" placeholder="例: 2台正常稼働、1台刃交換要"></textarea>
+              </div>
+            </div>
+            <div class="equipment-row">
+              <div class="eq-label">耕運機（1台）</div>
+              <div class="eq-status-wrap" style="flex:1;">
+                <label>状況・メモ</label>
+                <textarea id="eq-kouki-status" placeholder="例: 正常稼働"></textarea>
+              </div>
+            </div>
+            <div class="equipment-row">
+              <div class="eq-label">ハンマーナイフ（2台）</div>
+              <div class="eq-status-wrap" style="flex:1;">
+                <label>状況・メモ</label>
+                <textarea id="eq-hammer-status" placeholder="例: 1台オイル補充済み、1台要点検"></textarea>
+              </div>
+            </div>
+            <div class="equipment-row">
+              <div class="eq-label">チッパー</div>
+              <div class="eq-status-wrap" style="flex:1;">
+                <label>状況・メモ</label>
+                <textarea id="eq-chipper-status" placeholder="例: 正常稼働"></textarea>
+              </div>
+            </div>
+          </div>
+
+          <button type="submit" class="btn" style="margin-top:16px;">保存</button>
+          <p class="help-text" id="eq-result"></p>
+        </form>
+      </section>
+    </div>
+
+  </div><!-- /adminPanel -->
 </main>
 
-<!-- 編集モーダル -->
+<!-- ===== 活動編集モーダル ===== -->
 <div class="modal-overlay hidden" id="editModal">
   <div class="modal">
     <button class="close-btn" id="closeEditBtn">&times;</button>
@@ -70,25 +160,32 @@
         <label for="editStatus">活動状況</label>
         <select id="editStatus">
           <option value="予定">予定</option>
-          <option value="中止">中止(雨天等)</option>
+          <option value="実施">実施（完了）</option>
+          <option value="中止">中止（雨天等）</option>
           <option value="延期">延期</option>
         </select>
       </div>
 
       <div class="field">
-        <label for="editLocationName">活動場所名</label>
-        <input type="text" id="editLocationName" placeholder="例: 新座市営第3緑地">
+        <label>活動場所</label>
+        <select id="editLocationSelect" style="margin-bottom:4px;">
+          <option value="">--- プリセットから選択 ---</option>
+        </select>
+        <input type="text" id="editLocationName" placeholder="場所名（手入力も可）">
       </div>
 
       <div class="field">
-        <label>地図をクリックして活動場所を設定</label>
+        <label>地図をクリックして場所を設定</label>
         <div id="admin-map"></div>
-        <p class="help-text" id="editLatLng">緯度・経度: 未設定</p>
+        <p class="help-text" id="editLatLng">緯度・経度: 未設定（地図をクリックしてください）</p>
       </div>
 
       <div class="field">
-        <label for="editContent">活動内容</label>
-        <textarea id="editContent" placeholder="例: 草刈り、清掃、剪定作業など"></textarea>
+        <label>活動内容</label>
+        <select id="editActivityTypeSelect" style="margin-bottom:4px;">
+          <option value="">--- プリセットから選択 ---</option>
+        </select>
+        <textarea id="editContent" placeholder="活動内容（手入力も可）"></textarea>
       </div>
 
       <div class="field">
@@ -96,7 +193,27 @@
         <textarea id="editNotes" placeholder="例: 動きやすい服装・軍手・飲み物をご持参ください"></textarea>
       </div>
 
-      <button type="submit" class="btn">保存</button>
+      <div class="field">
+        <label class="checkbox-label">
+          <input type="checkbox" id="editParking">
+          駐車場あり
+        </label>
+      </div>
+
+      <div class="field">
+        <label for="editParticipants">参加人数</label>
+        <input type="number" id="editParticipants" min="0" placeholder="0">
+      </div>
+
+      <div class="field">
+        <label for="editAdminComment">管理者コメント（内部メモ）</label>
+        <textarea id="editAdminComment" placeholder="内部連絡事項など（一般公開されません）"></textarea>
+      </div>
+
+      <div class="btn-row">
+        <button type="submit" class="btn">保存</button>
+        <button type="button" class="btn danger" id="deleteEventBtn">このデータを削除</button>
+      </div>
       <p class="help-text" id="saveResult"></p>
     </form>
   </div>

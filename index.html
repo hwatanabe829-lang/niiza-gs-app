@@ -9,15 +9,19 @@
 </head>
 <body>
 <header class="app-header">
-  <h1>🌳 新座市グリーンサポーター活動カレンダー(令和8年度)</h1>
+  <h1>🌳 新座市グリーンサポーター活動カレンダー（令和8年度）</h1>
   <a href="admin.html">管理者ログイン</a>
 </header>
 
+<div class="contact-bar">
+  <span>📞 みどりと公園課: <a href="tel:0484772987"><strong>048-477-2987</strong></a></span>
+</div>
+
 <main>
   <p class="notice">
-    緑地の整備ボランティア「グリーンサポーター(GS)」の活動予定をカレンダーで確認できます。
-    日付をクリックすると活動場所・内容・注意点などの詳細が表示されます。
-    活動に参加された方は、感想や改善点をぜひ投稿してください。
+    緑地整備ボランティア「グリーンサポーター(GS)」の活動予定をカレンダーで確認できます。
+    活動日（緑色）をクリックすると場所・内容・注意点などの詳細が表示されます。
+    活動に参加された方は感想や改善点をぜひ投稿してください。
   </p>
 
   <div class="calendar-nav">
@@ -27,6 +31,25 @@
   </div>
 
   <div class="calendar-grid" id="calendarGrid"></div>
+
+  <!-- 使い方ガイド -->
+  <details class="guide-section">
+    <summary>🔧 機器・道具の使い方ガイド</summary>
+    <div class="guide-content">
+      <a href="https://www.youtube.com/results?search_query=刈払い機+使い方+安全" target="_blank" rel="noopener noreferrer">
+        ✂️ 刈払い機（草刈り機）の使い方・安全注意
+      </a>
+      <a href="https://www.youtube.com/results?search_query=耕運機+使い方" target="_blank" rel="noopener noreferrer">
+        🚜 耕運機の使い方
+      </a>
+      <a href="https://www.youtube.com/results?search_query=ハンマーナイフモア+使い方" target="_blank" rel="noopener noreferrer">
+        🌿 ハンマーナイフモアの使い方
+      </a>
+      <a href="https://www.youtube.com/results?search_query=チッパー+粉砕機+使い方" target="_blank" rel="noopener noreferrer">
+        🪵 チッパー（粉砕機）の使い方
+      </a>
+    </div>
+  </details>
 </main>
 
 <!-- 活動詳細モーダル -->
@@ -42,6 +65,10 @@
       <div id="map"></div>
     </div>
 
+    <div class="modal-section hidden" id="modalParkingSection">
+      <div id="modalParking" style="color:#1565c0; font-weight:bold;"></div>
+    </div>
+
     <div class="modal-section">
       <h3>活動内容</h3>
       <div id="modalContent"></div>
@@ -52,16 +79,20 @@
       <div id="modalNotes"></div>
     </div>
 
+    <div class="modal-section hidden" id="modalParticipantsSection">
+      <div id="modalParticipants" style="font-weight:bold;"></div>
+    </div>
+
     <div class="modal-section">
       <h3>感想・改善点を投稿</h3>
       <form id="feedbackForm">
         <div class="field">
-          <label for="feedbackName">お名前(任意)</label>
+          <label for="feedbackName">お名前（任意）</label>
           <input type="text" id="feedbackName" placeholder="例: 新座 太郎">
         </div>
         <div class="field">
           <label for="feedbackComment">感想・改善点</label>
-          <textarea id="feedbackComment" required placeholder="活動の感想や、今後への改善提案などをご記入ください"></textarea>
+          <textarea id="feedbackComment" required placeholder="活動の感想や改善提案などをご記入ください"></textarea>
         </div>
         <button type="submit" class="btn">投稿する</button>
       </form>
@@ -73,6 +104,14 @@
     </div>
   </div>
 </div>
+
+<footer class="site-footer">
+  <h4>⚠️ 免責事項</h4>
+  <p>
+    このアプリを利用して発生した損害（けが・事故・データの損失等を含む）について、新座市およびグリーンサポーター運営事務局は一切の責任を負いません。
+    活動への参加は自己の責任において行ってください。掲載情報は変更される場合があります。最新情報はみどりと公園課（048-477-2987）にお問い合わせください。
+  </p>
+</footer>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script type="module" src="js/app.js"></script>

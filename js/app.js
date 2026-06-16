@@ -17,6 +17,7 @@ import {
   formatDate,
   WEEKDAY_LABELS,
 } from "./calendar.js";
+import { getHolidayName } from "./holidays.js";
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
@@ -33,7 +34,6 @@ const calendarGrid = document.getElementById("calendarGrid");
 const monthLabel = document.getElementById("monthLabel");
 const prevBtn = document.getElementById("prevMonthBtn");
 const nextBtn = document.getElementById("nextMonthBtn");
-
 const detailModal = document.getElementById("detailModal");
 const closeModalBtn = document.getElementById("closeModalBtn");
 const modalDate = document.getElementById("modalDate");
@@ -41,12 +41,51 @@ const modalStatus = document.getElementById("modalStatus");
 const modalLocationName = document.getElementById("modalLocationName");
 const modalContent = document.getElementById("modalContent");
 const modalNotes = document.getElementById("modalNotes");
+const modalParking = document.getElementById("modalParking");
+const modalParticipants = document.getElementById("modalParticipants");
 const feedbackForm = document.getElementById("feedbackForm");
 const feedbackList = document.getElementById("feedbackList");
 
 let map = null;
 let marker = null;
 let currentDateStr = null;
+let weatherCache = new Map(); // dateStr → {max, min, code}
+
+const DOW_JA = ["日", "月", "火", "水", "木", "金", "土"];
+
+function weatherEmoji(code) {
+  if (code === 0) return "☀️";
+  if (code <= 2) return "🌤️";
+  if (code === 3) return "☁️";
+  if (code <= 48) return "🌫️";
+  if (code <= 57) return "🌦️";
+  if (code <= 67) return "🌧️";
+  if (code <= 82) return "🌧️";
+  if (code <= 86) return "❄️";
+  return "⛈️";
+}
+
+async function fetchWeather() {
+  try {
+    const url =
+      "https://api.open-meteo.com/v1/forecast" +
+      "?latitude=35.7768&longitude=139.5703" +
+      "&daily=temperature_2m_max,temperature_2m_min,weathercode" +
+      "&timezone=Asia%2FTokyo&forecast_days=16";
+    const res = await fetch(url);
+    const data = await res.json();
+    const { time, temperature_2m_max, temperature_2m_min, weathercode } = data.daily;
+    time.forEach((d, i) => {
+      weatherCache.set(d, {
+        max: Math.round(temperature_2m_max[i]),
+        min: Math.round(temperature_2m_min[i]),
+        code: weathercode[i],
+      });
+    });
+  } catch {
+    // API unavailable — calendar still works without weather
+  }
+}
 
 function renderCalendar() {
   const { year, month } = months[monthIndex];
@@ -55,6 +94,7 @@ function renderCalendar() {
   nextBtn.disabled = monthIndex === months.length - 1;
 
   calendarGrid.innerHTML = "";
+
   WEEKDAY_LABELS.forEach((label, i) => {
     const el = document.createElement("div");
     el.className = "weekday";
@@ -75,46 +115,95 @@ function renderCalendar() {
   }
 
   for (let day = 1; day <= lastDate; day++) {
-    const dateStr = formatDate(new Date(year, month - 1, day));
+    const d = new Date(year, month - 1, day);
+    const dateStr = formatDate(d);
+    const dow = d.getDay();
+    const holidayName = getHolidayName(dateStr);
+
     const cell = document.createElement("div");
     cell.className = "day-cell";
+    cell.dataset.date = dateStr;
+    if (dow === 0) cell.classList.add("sun-cell");
+    if (dow === 6) cell.classList.add("sat-cell");
+    if (holidayName) cell.classList.add("holiday-cell");
 
-    const num = document.createElement("div");
+    const num = document.createElement("span");
     num.className = "date-num";
     num.textContent = day;
     cell.appendChild(num);
 
+    if (holidayName) {
+      const hEl = document.createElement("div");
+      hEl.className = "cell-holiday";
+      hEl.textContent = holidayName;
+      cell.appendChild(hEl);
+    }
+
+    const w = weatherCache.get(dateStr);
+    if (w) {
+      const wEl = document.createElement("div");
+      wEl.className = "cell-weather";
+      wEl.textContent = `${weatherEmoji(w.code)} ${w.max}°/${w.min}°`;
+      cell.appendChild(wEl);
+    }
+
     if (activityDates.has(dateStr)) {
       cell.classList.add("activity");
-      cell.dataset.date = dateStr;
       cell.addEventListener("click", () => openDetail(dateStr));
     }
 
     calendarGrid.appendChild(cell);
   }
 
-  if (activityDates.size) {
-    loadStatusMarks(year, month);
-  }
+  loadActivityData(year, month);
 }
 
-async function loadStatusMarks(year, month) {
-  const monthPrefix = `${year}-${String(month).padStart(2, "0")}`;
+async function loadActivityData(year, month) {
+  const prefix = `${year}-${String(month).padStart(2, "0")}`;
   for (const cell of calendarGrid.querySelectorAll(".day-cell.activity")) {
     const dateStr = cell.dataset.date;
-    if (!dateStr.startsWith(monthPrefix)) continue;
+    if (!dateStr.startsWith(prefix)) continue;
     const snap = await getDoc(doc(db, "activities", dateStr));
-    const status = snap.exists() ? snap.data().status || "予定" : "予定";
+    if (!snap.exists()) continue;
+    const data = snap.data();
+    const status = data.status || "予定";
+
     const mark = document.createElement("span");
     mark.className = `status-mark status-${status}`;
     mark.textContent = status;
     cell.appendChild(mark);
+
+    if (data.location?.name) {
+      const locEl = document.createElement("div");
+      locEl.className = "cell-location";
+      locEl.textContent = "📍 " + data.location.name;
+      cell.appendChild(locEl);
+    }
+
+    if (data.parking) {
+      const pEl = document.createElement("div");
+      pEl.className = "cell-parking";
+      pEl.textContent = "🅿 駐車可";
+      cell.appendChild(pEl);
+    }
+
+    if ((status === "実施" || status === "予定") && data.participants) {
+      const ptEl = document.createElement("div");
+      ptEl.className = "cell-participants";
+      ptEl.textContent = "👥 " + data.participants + "名";
+      cell.appendChild(ptEl);
+    }
   }
 }
 
 async function openDetail(dateStr) {
   currentDateStr = dateStr;
-  modalDate.textContent = dateStr;
+  const d = new Date(dateStr);
+  const holidayName = getHolidayName(dateStr);
+  const dowStr = DOW_JA[d.getDay()];
+  modalDate.textContent =
+    `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日（${dowStr}）` +
+    (holidayName ? ` 🎌 ${holidayName}` : "");
   detailModal.classList.remove("hidden");
 
   const snap = await getDoc(doc(db, "activities", dateStr));
@@ -123,9 +212,25 @@ async function openDetail(dateStr) {
 
   modalStatus.textContent = status;
   modalStatus.className = `status-mark status-${status}`;
-  modalLocationName.textContent = data.location?.name || "(未設定)";
-  modalContent.textContent = data.content || "(未設定)";
-  modalNotes.textContent = data.notes || "(未設定)";
+  modalLocationName.textContent = data.location?.name || "（未設定）";
+  modalContent.textContent = data.content || "（未設定）";
+  modalNotes.textContent = data.notes || "（未設定）";
+
+  const parkingSection = document.getElementById("modalParkingSection");
+  if (data.parking) {
+    parkingSection.classList.remove("hidden");
+    modalParking.textContent = "🅿 駐車場あり";
+  } else {
+    parkingSection.classList.add("hidden");
+  }
+
+  const partSection = document.getElementById("modalParticipantsSection");
+  if (data.participants) {
+    partSection.classList.remove("hidden");
+    modalParticipants.textContent = "👥 参加人数: " + data.participants + "名";
+  } else {
+    partSection.classList.add("hidden");
+  }
 
   renderMap(data.location);
   loadFeedback(dateStr);
@@ -134,18 +239,16 @@ async function openDetail(dateStr) {
 function renderMap(location) {
   const mapEl = document.getElementById("map");
   mapEl.style.display = location?.lat ? "" : "none";
-
   if (!location?.lat) return;
-
   if (!map) {
     map = L.map("map");
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "&copy; OpenStreetMap contributors",
+    }).addTo(map);
   }
   map.setView([location.lat, location.lng], 16);
   if (marker) marker.remove();
   marker = L.marker([location.lat, location.lng]).addTo(map);
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    attribution: "&copy; OpenStreetMap contributors",
-  }).addTo(map);
   setTimeout(() => map.invalidateSize(), 100);
 }
 
@@ -162,13 +265,13 @@ async function loadFeedback(dateStr) {
     return;
   }
   snap.forEach((d) => {
-    const data = d.data();
+    const item = d.data();
     const li = document.createElement("li");
     const nameSpan = document.createElement("span");
     nameSpan.className = "feedback-name";
-    nameSpan.textContent = data.name || "匿名";
+    nameSpan.textContent = item.name || "匿名";
     li.appendChild(nameSpan);
-    li.appendChild(document.createTextNode(data.comment));
+    li.appendChild(document.createTextNode(item.comment));
     feedbackList.appendChild(li);
   });
 }
@@ -178,37 +281,25 @@ feedbackForm.addEventListener("submit", async (e) => {
   const name = document.getElementById("feedbackName").value.trim();
   const comment = document.getElementById("feedbackComment").value.trim();
   if (!comment) return;
-
   await addDoc(collection(db, "activities", currentDateStr, "feedbacks"), {
     name,
     comment,
     createdAt: serverTimestamp(),
   });
-
   feedbackForm.reset();
   loadFeedback(currentDateStr);
 });
 
-closeModalBtn.addEventListener("click", () => {
-  detailModal.classList.add("hidden");
-});
-
+closeModalBtn.addEventListener("click", () => detailModal.classList.add("hidden"));
 detailModal.addEventListener("click", (e) => {
   if (e.target === detailModal) detailModal.classList.add("hidden");
 });
 
 prevBtn.addEventListener("click", () => {
-  if (monthIndex > 0) {
-    monthIndex--;
-    renderCalendar();
-  }
+  if (monthIndex > 0) { monthIndex--; renderCalendar(); }
 });
-
 nextBtn.addEventListener("click", () => {
-  if (monthIndex < months.length - 1) {
-    monthIndex++;
-    renderCalendar();
-  }
+  if (monthIndex < months.length - 1) { monthIndex++; renderCalendar(); }
 });
 
-renderCalendar();
+fetchWeather().then(() => renderCalendar());

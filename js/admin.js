@@ -10,6 +10,7 @@ import {
   doc,
   getDoc,
   setDoc,
+  deleteDoc,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { firebaseConfig } from "./firebase-config.js";
 import {
@@ -18,6 +19,7 @@ import {
   formatDate,
   WEEKDAY_LABELS,
 } from "./calendar.js";
+import { getHolidayName } from "./holidays.js";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -31,6 +33,17 @@ let monthIndex = months.findIndex(
 );
 if (monthIndex === -1) monthIndex = 0;
 
+// 設定キャッシュ
+let locationsList = [];    // [{id, name, lat, lng}]
+let activityTypesList = []; // [string]
+
+// 編集状態
+let currentDateStr = null;
+let currentLocation = null;
+let adminMap = null;
+let adminMarker = null;
+
+// DOM refs
 const loginCard = document.getElementById("loginCard");
 const loginForm = document.getElementById("loginForm");
 const loginError = document.getElementById("loginError");
@@ -39,36 +52,41 @@ const loggedInUser = document.getElementById("loggedInUser");
 const logoutBtn = document.getElementById("logoutBtn");
 const setupBtn = document.getElementById("setupBtn");
 const setupResult = document.getElementById("setupResult");
-
 const calendarGrid = document.getElementById("calendarGrid");
 const monthLabel = document.getElementById("monthLabel");
 const prevBtn = document.getElementById("prevMonthBtn");
 const nextBtn = document.getElementById("nextMonthBtn");
-
 const editModal = document.getElementById("editModal");
 const closeEditBtn = document.getElementById("closeEditBtn");
 const editDate = document.getElementById("editDate");
 const editForm = document.getElementById("editForm");
 const editStatus = document.getElementById("editStatus");
+const editLocationSelect = document.getElementById("editLocationSelect");
 const editLocationName = document.getElementById("editLocationName");
+const editActivityTypeSelect = document.getElementById("editActivityTypeSelect");
 const editContent = document.getElementById("editContent");
 const editNotes = document.getElementById("editNotes");
+const editParking = document.getElementById("editParking");
+const editParticipants = document.getElementById("editParticipants");
+const editAdminComment = document.getElementById("editAdminComment");
 const editLatLng = document.getElementById("editLatLng");
 const saveResult = document.getElementById("saveResult");
+const deleteEventBtn = document.getElementById("deleteEventBtn");
 
-let currentDateStr = null;
-let currentLocation = null;
-let adminMap = null;
-let adminMarker = null;
+const DOW_JA = ["日", "月", "火", "水", "木", "金", "土"];
 
-// --- 認証 ---
+// ============================================================
+// 認証
+// ============================================================
 loginForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   loginError.classList.add("hidden");
-  const email = document.getElementById("loginEmail").value;
-  const password = document.getElementById("loginPassword").value;
   try {
-    await signInWithEmailAndPassword(auth, email, password);
+    await signInWithEmailAndPassword(
+      auth,
+      document.getElementById("loginEmail").value,
+      document.getElementById("loginPassword").value
+    );
   } catch (err) {
     loginError.textContent = "ログインに失敗しました: " + err.message;
     loginError.classList.remove("hidden");
@@ -77,11 +95,12 @@ loginForm.addEventListener("submit", async (e) => {
 
 logoutBtn.addEventListener("click", () => signOut(auth));
 
-onAuthStateChanged(auth, (user) => {
+onAuthStateChanged(auth, async (user) => {
   if (user) {
     loginCard.classList.add("hidden");
     adminPanel.classList.remove("hidden");
     loggedInUser.textContent = `ログイン中: ${user.email}`;
+    await loadSettings();
     renderCalendar();
   } else {
     loginCard.classList.remove("hidden");
@@ -89,29 +108,207 @@ onAuthStateChanged(auth, (user) => {
   }
 });
 
-// --- 初回セットアップ ---
-setupBtn.addEventListener("click", async () => {
-  setupResult.textContent = "登録中...";
-  let created = 0;
-  for (const dateStr of activityDates) {
-    const ref = doc(db, "activities", dateStr);
-    const snap = await getDoc(ref);
-    if (!snap.exists()) {
-      await setDoc(ref, {
-        date: dateStr,
-        status: "予定",
-        location: { name: "", lat: null, lng: null },
-        content: "",
-        notes: "",
-      });
-      created++;
-    }
-  }
-  setupResult.textContent = `完了: ${created}件の活動日を新規登録しました(対象 全${activityDates.size}件)。`;
-  renderCalendar();
+// ============================================================
+// タブ切り替え
+// ============================================================
+document.querySelectorAll(".tab-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
+    document.querySelectorAll(".tab-pane").forEach((p) => p.classList.add("hidden"));
+    btn.classList.add("active");
+    document.getElementById("tab-" + btn.dataset.tab).classList.remove("hidden");
+  });
 });
 
-// --- カレンダー ---
+// ============================================================
+// 設定読み込み
+// ============================================================
+async function loadSettings() {
+  const [locSnap, actSnap] = await Promise.all([
+    getDoc(doc(db, "settings", "locations")),
+    getDoc(doc(db, "settings", "activityTypes")),
+  ]);
+  locationsList = locSnap.exists() ? (locSnap.data().list || []) : [];
+  activityTypesList = actSnap.exists() ? (actSnap.data().list || []) : [];
+
+  renderLocationList();
+  renderActivityTypeList();
+  renderLocationDropdown();
+  renderActivityTypeDropdown();
+  loadEquipment();
+}
+
+// ============================================================
+// 場所設定
+// ============================================================
+async function saveLocations() {
+  await setDoc(doc(db, "settings", "locations"), { list: locationsList });
+}
+
+function renderLocationList() {
+  const container = document.getElementById("locationList");
+  if (!container) return;
+  container.innerHTML = "";
+  if (locationsList.length === 0) {
+    container.innerHTML = '<p class="help-text">まだ登録されていません</p>';
+    return;
+  }
+  locationsList.forEach((loc, i) => {
+    const row = document.createElement("div");
+    row.className = "settings-item";
+    const coordStr = loc.lat ? ` (${Number(loc.lat).toFixed(4)}, ${Number(loc.lng).toFixed(4)})` : "";
+    row.innerHTML = `<span>${loc.name}${coordStr}</span>`;
+    const delBtn = document.createElement("button");
+    delBtn.type = "button";
+    delBtn.className = "btn danger btn-sm";
+    delBtn.textContent = "削除";
+    delBtn.addEventListener("click", async () => {
+      if (!confirm(`「${loc.name}」を削除しますか？`)) return;
+      locationsList.splice(i, 1);
+      await saveLocations();
+      renderLocationList();
+      renderLocationDropdown();
+    });
+    row.appendChild(delBtn);
+    container.appendChild(row);
+  });
+}
+
+function renderLocationDropdown() {
+  editLocationSelect.innerHTML = '<option value="">--- プリセットから選択 ---</option>';
+  locationsList.forEach((loc, i) => {
+    const opt = document.createElement("option");
+    opt.value = i;
+    opt.textContent = loc.name;
+    editLocationSelect.appendChild(opt);
+  });
+}
+
+document.getElementById("locationForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const name = document.getElementById("locName").value.trim();
+  const lat = parseFloat(document.getElementById("locLat").value) || null;
+  const lng = parseFloat(document.getElementById("locLng").value) || null;
+  if (!name) return;
+  locationsList.push({ name, lat, lng });
+  await saveLocations();
+  renderLocationList();
+  renderLocationDropdown();
+  e.target.reset();
+});
+
+editLocationSelect.addEventListener("change", (e) => {
+  const idx = e.target.value;
+  if (idx === "") return;
+  const loc = locationsList[parseInt(idx)];
+  editLocationName.value = loc.name;
+  if (loc.lat && loc.lng) {
+    currentLocation = { lat: loc.lat, lng: loc.lng };
+    updateLatLngLabel();
+    if (adminMap) {
+      adminMap.setView([loc.lat, loc.lng], 16);
+      if (adminMarker) adminMarker.remove();
+      adminMarker = L.marker([loc.lat, loc.lng]).addTo(adminMap);
+    }
+  }
+});
+
+// ============================================================
+// 活動内容設定
+// ============================================================
+async function saveActivityTypes() {
+  await setDoc(doc(db, "settings", "activityTypes"), { list: activityTypesList });
+}
+
+function renderActivityTypeList() {
+  const container = document.getElementById("activityTypeList");
+  if (!container) return;
+  container.innerHTML = "";
+  if (activityTypesList.length === 0) {
+    container.innerHTML = '<p class="help-text">まだ登録されていません</p>';
+    return;
+  }
+  activityTypesList.forEach((type, i) => {
+    const row = document.createElement("div");
+    row.className = "settings-item";
+    row.innerHTML = `<span>${type}</span>`;
+    const delBtn = document.createElement("button");
+    delBtn.type = "button";
+    delBtn.className = "btn danger btn-sm";
+    delBtn.textContent = "削除";
+    delBtn.addEventListener("click", async () => {
+      activityTypesList.splice(i, 1);
+      await saveActivityTypes();
+      renderActivityTypeList();
+      renderActivityTypeDropdown();
+    });
+    row.appendChild(delBtn);
+    container.appendChild(row);
+  });
+}
+
+function renderActivityTypeDropdown() {
+  editActivityTypeSelect.innerHTML = '<option value="">--- プリセットから選択 ---</option>';
+  activityTypesList.forEach((type, i) => {
+    const opt = document.createElement("option");
+    opt.value = i;
+    opt.textContent = type;
+    editActivityTypeSelect.appendChild(opt);
+  });
+}
+
+document.getElementById("activityTypeForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const name = document.getElementById("actTypeName").value.trim();
+  if (!name) return;
+  activityTypesList.push(name);
+  await saveActivityTypes();
+  renderActivityTypeList();
+  renderActivityTypeDropdown();
+  e.target.reset();
+});
+
+editActivityTypeSelect.addEventListener("change", (e) => {
+  const idx = e.target.value;
+  if (idx === "") return;
+  editContent.value = activityTypesList[parseInt(idx)];
+});
+
+// ============================================================
+// 機材・備品
+// ============================================================
+async function loadEquipment() {
+  const snap = await getDoc(doc(db, "settings", "equipment"));
+  if (!snap.exists()) return;
+  const d = snap.data();
+  document.getElementById("eq-drinks").value = d.drinks || "";
+  document.getElementById("eq-candy").value = d.candy || "";
+  document.getElementById("eq-kari-count").value = d.kariCount ?? "";
+  document.getElementById("eq-kari-status").value = d.kariStatus || "";
+  document.getElementById("eq-kouki-status").value = d.koukiStatus || "";
+  document.getElementById("eq-hammer-status").value = d.hammerStatus || "";
+  document.getElementById("eq-chipper-status").value = d.chipperStatus || "";
+}
+
+document.getElementById("equipmentForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  await setDoc(doc(db, "settings", "equipment"), {
+    drinks: document.getElementById("eq-drinks").value,
+    candy: document.getElementById("eq-candy").value,
+    kariCount: parseInt(document.getElementById("eq-kari-count").value) || 0,
+    kariStatus: document.getElementById("eq-kari-status").value,
+    koukiStatus: document.getElementById("eq-kouki-status").value,
+    hammerStatus: document.getElementById("eq-hammer-status").value,
+    chipperStatus: document.getElementById("eq-chipper-status").value,
+  });
+  const res = document.getElementById("eq-result");
+  res.textContent = "✅ 保存しました。";
+  setTimeout(() => (res.textContent = ""), 3000);
+});
+
+// ============================================================
+// カレンダー
+// ============================================================
 function renderCalendar() {
   const { year, month } = months[monthIndex];
   monthLabel.textContent = `${year}年${month}月`;
@@ -139,62 +336,127 @@ function renderCalendar() {
   }
 
   for (let day = 1; day <= lastDate; day++) {
-    const dateStr = formatDate(new Date(year, month - 1, day));
+    const d = new Date(year, month - 1, day);
+    const dateStr = formatDate(d);
+    const dow = d.getDay();
+    const holidayName = getHolidayName(dateStr);
+
     const cell = document.createElement("div");
     cell.className = "day-cell";
+    cell.dataset.date = dateStr;
+    if (dow === 0) cell.classList.add("sun-cell");
+    if (dow === 6) cell.classList.add("sat-cell");
+    if (holidayName) cell.classList.add("holiday-cell");
 
-    const num = document.createElement("div");
+    const num = document.createElement("span");
     num.className = "date-num";
     num.textContent = day;
     cell.appendChild(num);
 
+    if (holidayName) {
+      const hEl = document.createElement("div");
+      hEl.className = "cell-holiday";
+      hEl.textContent = holidayName;
+      cell.appendChild(hEl);
+    }
+
     if (activityDates.has(dateStr)) {
       cell.classList.add("activity");
-      cell.dataset.date = dateStr;
       cell.addEventListener("click", () => openEdit(dateStr));
     }
 
     calendarGrid.appendChild(cell);
   }
 
-  if (activityDates.size) {
-    loadStatusMarks(year, month);
-  }
+  loadStatusMarks(year, month);
 }
 
 async function loadStatusMarks(year, month) {
-  const monthPrefix = `${year}-${String(month).padStart(2, "0")}`;
+  const prefix = `${year}-${String(month).padStart(2, "0")}`;
   for (const cell of calendarGrid.querySelectorAll(".day-cell.activity")) {
     const dateStr = cell.dataset.date;
-    if (!dateStr.startsWith(monthPrefix)) continue;
+    if (!dateStr.startsWith(prefix)) continue;
     const snap = await getDoc(doc(db, "activities", dateStr));
-    const status = snap.exists() ? snap.data().status || "予定" : "予定";
+    if (!snap.exists()) continue;
+    const data = snap.data();
+    const status = data.status || "予定";
+
     const mark = document.createElement("span");
     mark.className = `status-mark status-${status}`;
     mark.textContent = status;
     cell.appendChild(mark);
+
+    if (data.location?.name) {
+      const locEl = document.createElement("div");
+      locEl.className = "cell-location";
+      locEl.textContent = "📍 " + data.location.name;
+      cell.appendChild(locEl);
+    }
+
+    if (data.parking) {
+      const pEl = document.createElement("div");
+      pEl.className = "cell-parking";
+      pEl.textContent = "🅿 駐車可";
+      cell.appendChild(pEl);
+    }
+
+    if (data.participants) {
+      const ptEl = document.createElement("div");
+      ptEl.className = "cell-participants";
+      ptEl.textContent = "👥 " + data.participants + "名";
+      cell.appendChild(ptEl);
+    }
   }
 }
 
 prevBtn.addEventListener("click", () => {
-  if (monthIndex > 0) {
-    monthIndex--;
-    renderCalendar();
-  }
+  if (monthIndex > 0) { monthIndex--; renderCalendar(); }
 });
-
 nextBtn.addEventListener("click", () => {
-  if (monthIndex < months.length - 1) {
-    monthIndex++;
-    renderCalendar();
-  }
+  if (monthIndex < months.length - 1) { monthIndex++; renderCalendar(); }
 });
 
-// --- 編集モーダル ---
+// ============================================================
+// 初回セットアップ
+// ============================================================
+setupBtn.addEventListener("click", async () => {
+  setupResult.textContent = "登録中...";
+  let created = 0;
+  for (const dateStr of activityDates) {
+    const ref = doc(db, "activities", dateStr);
+    const snap = await getDoc(ref);
+    if (!snap.exists()) {
+      await setDoc(ref, {
+        date: dateStr,
+        status: "予定",
+        location: { name: "", lat: null, lng: null },
+        content: "",
+        notes: "",
+        parking: false,
+        participants: 0,
+        adminComment: "",
+      });
+      created++;
+    }
+  }
+  setupResult.textContent = `完了: ${created}件の活動日を新規登録しました（対象 全${activityDates.size}件）。`;
+  renderCalendar();
+});
+
+// ============================================================
+// 編集モーダル
+// ============================================================
 async function openEdit(dateStr) {
   currentDateStr = dateStr;
   saveResult.textContent = "";
-  editDate.textContent = dateStr;
+  editLocationSelect.value = "";
+  editActivityTypeSelect.value = "";
+
+  const d = new Date(dateStr);
+  const holidayName = getHolidayName(dateStr);
+  editDate.textContent =
+    `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日（${DOW_JA[d.getDay()]}）` +
+    (holidayName ? ` 🎌 ${holidayName}` : "");
 
   const snap = await getDoc(doc(db, "activities", dateStr));
   const data = snap.exists() ? snap.data() : {};
@@ -203,24 +465,27 @@ async function openEdit(dateStr) {
   editLocationName.value = data.location?.name || "";
   editContent.value = data.content || "";
   editNotes.value = data.notes || "";
+  editParking.checked = data.parking || false;
+  editParticipants.value = data.participants || "";
+  editAdminComment.value = data.adminComment || "";
+
   currentLocation = data.location?.lat
     ? { lat: data.location.lat, lng: data.location.lng }
     : null;
-
   updateLatLngLabel();
-  editModal.classList.remove("hidden");
 
+  editModal.classList.remove("hidden");
   setTimeout(() => initAdminMap(currentLocation), 100);
 }
 
 function updateLatLngLabel() {
   editLatLng.textContent = currentLocation
-    ? `緯度・経度: ${currentLocation.lat.toFixed(6)}, ${currentLocation.lng.toFixed(6)}`
-    : "緯度・経度: 未設定(地図をクリックしてください)";
+    ? `緯度・経度: ${Number(currentLocation.lat).toFixed(6)}, ${Number(currentLocation.lng).toFixed(6)}`
+    : "緯度・経度: 未設定（地図をクリックしてください）";
 }
 
 function initAdminMap(location) {
-  const center = location ? [location.lat, location.lng] : [35.7768, 139.5703]; // 新座市付近
+  const center = location ? [location.lat, location.lng] : [35.7768, 139.5703];
   if (!adminMap) {
     adminMap = L.map("admin-map").setView(center, location ? 16 : 13);
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -236,10 +501,7 @@ function initAdminMap(location) {
     adminMap.setView(center, location ? 16 : 13);
   }
 
-  if (adminMarker) {
-    adminMarker.remove();
-    adminMarker = null;
-  }
+  if (adminMarker) { adminMarker.remove(); adminMarker = null; }
   if (location) {
     adminMarker = L.marker(center).addTo(adminMap);
   }
@@ -254,7 +516,6 @@ editModal.addEventListener("click", (e) => {
 editForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   saveResult.textContent = "保存中...";
-
   await setDoc(
     doc(db, "activities", currentDateStr),
     {
@@ -267,10 +528,19 @@ editForm.addEventListener("submit", async (e) => {
       },
       content: editContent.value.trim(),
       notes: editNotes.value.trim(),
+      parking: editParking.checked,
+      participants: parseInt(editParticipants.value) || 0,
+      adminComment: editAdminComment.value.trim(),
     },
     { merge: true }
   );
+  saveResult.textContent = "✅ 保存しました。";
+  renderCalendar();
+});
 
-  saveResult.textContent = "保存しました。";
+deleteEventBtn.addEventListener("click", async () => {
+  if (!confirm(`${currentDateStr} のデータを削除しますか？\n（カレンダーの日付は残りますがデータが初期化されます）`)) return;
+  await deleteDoc(doc(db, "activities", currentDateStr));
+  editModal.classList.add("hidden");
   renderCalendar();
 });
