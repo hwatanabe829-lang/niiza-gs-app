@@ -167,6 +167,10 @@ function renderCalendar() {
       cell.addEventListener("click", () => openDetail(dateStr));
     }
 
+    if (dateStr === formatDate(today)) {
+      cell.classList.add("today");
+    }
+
     calendarGrid.appendChild(cell);
   }
 

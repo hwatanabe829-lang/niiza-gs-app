@@ -122,6 +122,22 @@ main { max-width: 980px; margin: 0 auto; padding: 14px; }
 }
 .day-cell.activity:hover { background: #c8e6c9; }
 
+.day-cell.today {
+  outline: 2px solid var(--orange);
+  outline-offset: -2px;
+}
+.day-cell.today .date-num {
+  background: var(--orange);
+  color: #fff;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.82rem;
+}
+
 /* セル内情報 */
 .cell-holiday {
   font-size: 0.62rem;
