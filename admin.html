@@ -67,15 +67,29 @@
 
       <section class="admin-section">
         <h3>📍 活動場所リスト</h3>
-        <p class="help-text">登録した場所は活動編集画面のドロップダウンに表示されます。場所を選ぶと地図が自動的にその場所に移動します。</p>
+        <p class="help-text">場所名を入力して「座標を自動取得」を押すと座標が自動でセットされます。</p>
         <div id="locationList" class="settings-list"></div>
-        <form id="locationForm" class="settings-add-form">
-          <input type="text" id="locName" placeholder="場所名（例: 栄3丁目緑地）" required>
-          <input type="number" id="locLat" placeholder="緯度（例: 35.7768）" step="any">
-          <input type="number" id="locLng" placeholder="経度（例: 139.5703）" step="any">
-          <button type="submit" class="btn">追加</button>
+        <form id="locationForm">
+          <div class="field">
+            <label for="locName">場所名</label>
+            <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+              <input type="text" id="locName" placeholder="例: 栄3丁目緑地、西堀2丁目憩いの森" required style="flex:1; min-width:160px;">
+              <button type="button" id="locGeocode" class="btn btn-sm" style="white-space:nowrap;">📍 座標を自動取得</button>
+            </div>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <div class="field" style="flex:1;">
+              <label for="locLat">緯度（自動取得 or 手入力）</label>
+              <input type="number" id="locLat" placeholder="例: 35.7768" step="any">
+            </div>
+            <div class="field" style="flex:1;">
+              <label for="locLng">経度（自動取得 or 手入力）</label>
+              <input type="number" id="locLng" placeholder="例: 139.5703" step="any">
+            </div>
+          </div>
+          <p id="locGeocodeResult" class="help-text"></p>
+          <button type="submit" class="btn">リストに追加</button>
         </form>
-        <p class="help-text" style="margin-top:6px;">※緯度・経度は <a href="https://maps.google.com" target="_blank">Google マップ</a> で場所を右クリックして確認できます。</p>
       </section>
 
       <section class="admin-section">
@@ -168,10 +182,13 @@
 
       <div class="field">
         <label>活動場所</label>
-        <select id="editLocationSelect" style="margin-bottom:4px;">
+        <select id="editLocationSelect" style="margin-bottom:6px;">
           <option value="">--- プリセットから選択 ---</option>
         </select>
-        <input type="text" id="editLocationName" placeholder="場所名（手入力も可）">
+        <div style="display:flex; gap:6px; align-items:center;">
+          <input type="text" id="editLocationName" placeholder="場所名（手入力も可）" style="flex:1;">
+          <button type="button" id="geocodeBtn" class="btn btn-sm" style="white-space:nowrap;">🔍 地図で確認</button>
+        </div>
       </div>
 
       <div class="field">

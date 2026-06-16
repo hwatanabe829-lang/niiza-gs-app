@@ -124,18 +124,40 @@ document.querySelectorAll(".tab-btn").forEach((btn) => {
 // 設定読み込み
 // ============================================================
 async function loadSettings() {
-  const [locSnap, actSnap] = await Promise.all([
-    getDoc(doc(db, "settings", "locations")),
-    getDoc(doc(db, "settings", "activityTypes")),
-  ]);
-  locationsList = locSnap.exists() ? (locSnap.data().list || []) : [];
-  activityTypesList = actSnap.exists() ? (actSnap.data().list || []) : [];
+  try {
+    const [locSnap, actSnap] = await Promise.all([
+      getDoc(doc(db, "settings", "locations")),
+      getDoc(doc(db, "settings", "activityTypes")),
+    ]);
+    locationsList = locSnap.exists() ? (locSnap.data().list || []) : [];
+    activityTypesList = actSnap.exists() ? (actSnap.data().list || []) : [];
+  } catch {
+    // Firestoreルール未設定時でもカレンダーは動作する
+    locationsList = [];
+    activityTypesList = [];
+  }
 
   renderLocationList();
   renderActivityTypeList();
   renderLocationDropdown();
   renderActivityTypeDropdown();
   loadEquipment();
+}
+
+// ============================================================
+// ジオコーディング (Nominatim / OpenStreetMap)
+// ============================================================
+async function geocodeLocation(name) {
+  const q = name.includes("新座") ? name : name + " 新座市 埼玉県";
+  const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1&countrycodes=jp`;
+  try {
+    const res = await fetch(url, { headers: { "Accept-Language": "ja,en" } });
+    const data = await res.json();
+    if (data.length > 0) {
+      return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+    }
+  } catch {}
+  return null;
 }
 
 // ============================================================
@@ -184,16 +206,43 @@ function renderLocationDropdown() {
   });
 }
 
+document.getElementById("locGeocode").addEventListener("click", async () => {
+  const name = document.getElementById("locName").value.trim();
+  if (!name) { alert("場所名を入力してください"); return; }
+  const btn = document.getElementById("locGeocode");
+  const resultEl = document.getElementById("locGeocodeResult");
+  btn.textContent = "検索中...";
+  btn.disabled = true;
+  const coords = await geocodeLocation(name);
+  btn.textContent = "📍 座標を自動取得";
+  btn.disabled = false;
+  if (coords) {
+    document.getElementById("locLat").value = coords.lat.toFixed(6);
+    document.getElementById("locLng").value = coords.lng.toFixed(6);
+    resultEl.textContent = `✅ 座標を取得しました: ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`;
+    resultEl.style.color = "green";
+  } else {
+    resultEl.textContent = "❌ 座標が見つかりませんでした。場所名をより詳しく入力するか、手動で座標を入力してください。";
+    resultEl.style.color = "red";
+  }
+});
+
 document.getElementById("locationForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   const name = document.getElementById("locName").value.trim();
-  const lat = parseFloat(document.getElementById("locLat").value) || null;
-  const lng = parseFloat(document.getElementById("locLng").value) || null;
+  let lat = parseFloat(document.getElementById("locLat").value) || null;
+  let lng = parseFloat(document.getElementById("locLng").value) || null;
   if (!name) return;
+  if (!lat || !lng) {
+    // 座標未入力の場合は自動ジオコーディングを試みる
+    const coords = await geocodeLocation(name);
+    if (coords) { lat = coords.lat; lng = coords.lng; }
+  }
   locationsList.push({ name, lat, lng });
   await saveLocations();
   renderLocationList();
   renderLocationDropdown();
+  document.getElementById("locGeocodeResult").textContent = "";
   e.target.reset();
 });
 
@@ -278,16 +327,18 @@ editActivityTypeSelect.addEventListener("change", (e) => {
 // 機材・備品
 // ============================================================
 async function loadEquipment() {
-  const snap = await getDoc(doc(db, "settings", "equipment"));
-  if (!snap.exists()) return;
-  const d = snap.data();
-  document.getElementById("eq-drinks").value = d.drinks || "";
-  document.getElementById("eq-candy").value = d.candy || "";
-  document.getElementById("eq-kari-count").value = d.kariCount ?? "";
-  document.getElementById("eq-kari-status").value = d.kariStatus || "";
-  document.getElementById("eq-kouki-status").value = d.koukiStatus || "";
-  document.getElementById("eq-hammer-status").value = d.hammerStatus || "";
-  document.getElementById("eq-chipper-status").value = d.chipperStatus || "";
+  try {
+    const snap = await getDoc(doc(db, "settings", "equipment"));
+    if (!snap.exists()) return;
+    const d = snap.data();
+    document.getElementById("eq-drinks").value = d.drinks || "";
+    document.getElementById("eq-candy").value = d.candy || "";
+    document.getElementById("eq-kari-count").value = d.kariCount ?? "";
+    document.getElementById("eq-kari-status").value = d.kariStatus || "";
+    document.getElementById("eq-kouki-status").value = d.koukiStatus || "";
+    document.getElementById("eq-hammer-status").value = d.hammerStatus || "";
+    document.getElementById("eq-chipper-status").value = d.chipperStatus || "";
+  } catch {}
 }
 
 document.getElementById("equipmentForm").addEventListener("submit", async (e) => {
@@ -507,6 +558,29 @@ function initAdminMap(location) {
   }
   setTimeout(() => adminMap.invalidateSize(), 100);
 }
+
+// 編集モーダル内の「地図で確認」ボタン
+document.getElementById("geocodeBtn").addEventListener("click", async () => {
+  const name = editLocationName.value.trim();
+  if (!name) { alert("場所名を入力してください"); return; }
+  const btn = document.getElementById("geocodeBtn");
+  btn.textContent = "検索中...";
+  btn.disabled = true;
+  const coords = await geocodeLocation(name);
+  btn.textContent = "🔍 地図で確認";
+  btn.disabled = false;
+  if (coords) {
+    currentLocation = coords;
+    updateLatLngLabel();
+    if (adminMap) {
+      adminMap.setView([coords.lat, coords.lng], 16);
+      if (adminMarker) adminMarker.remove();
+      adminMarker = L.marker([coords.lat, coords.lng]).addTo(adminMap);
+    }
+  } else {
+    alert("場所が見つかりませんでした。場所名をより詳しく入力してください。\n例: 「栄3丁目緑地 新座市」");
+  }
+});
 
 closeEditBtn.addEventListener("click", () => editModal.classList.add("hidden"));
 editModal.addEventListener("click", (e) => {
