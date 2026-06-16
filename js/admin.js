@@ -196,6 +196,45 @@ async function saveLocations() {
   await setDoc(doc(db, "settings", "locations"), { list: locationsList });
 }
 
+let editingLocIndex = -1; // -1 = 新規追加モード、>=0 = 編集モード
+
+function setLocFormMode(index) {
+  const submitBtn = document.querySelector("#locationForm button[type='submit']");
+  const cancelBtn = document.getElementById("locCancelEdit");
+  const resultEl = document.getElementById("locGeocodeResult");
+
+  if (index === -1) {
+    // 新規追加モード
+    editingLocIndex = -1;
+    document.getElementById("locName").value = "";
+    document.getElementById("locLat").value = "";
+    document.getElementById("locLng").value = "";
+    resultEl.textContent = "";
+    submitBtn.textContent = "リストに追加";
+    cancelBtn.classList.add("hidden");
+    // リストの強調を解除
+    document.querySelectorAll("#locationList .settings-item").forEach(r => r.classList.remove("editing"));
+  } else {
+    // 編集モード：既存データをフォームにセット
+    editingLocIndex = index;
+    const loc = locationsList[index];
+    document.getElementById("locName").value = loc.name;
+    document.getElementById("locLat").value = loc.lat || "";
+    document.getElementById("locLng").value = loc.lng || "";
+    resultEl.textContent = `✏️ 「${loc.name}」を編集中`;
+    resultEl.style.color = "var(--blue)";
+    submitBtn.textContent = "変更を保存";
+    cancelBtn.classList.remove("hidden");
+    // 対象行をハイライト
+    document.querySelectorAll("#locationList .settings-item").forEach((r, i) => {
+      r.classList.toggle("editing", i === index);
+    });
+    // フォームまでスクロール
+    document.getElementById("locName").focus();
+    document.getElementById("locationForm").scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+}
+
 function renderLocationList() {
   const container = document.getElementById("locationList");
   if (!container) return;
@@ -207,59 +246,26 @@ function renderLocationList() {
   locationsList.forEach((loc, i) => {
     const row = document.createElement("div");
     row.className = "settings-item";
-    row.dataset.index = i;
 
     const coordStr = loc.lat ? ` (${Number(loc.lat).toFixed(4)}, ${Number(loc.lng).toFixed(4)})` : "";
-    const viewHtml = `<span class="loc-view">${loc.name}${coordStr}</span>`;
-    const editHtml = `
-      <div class="loc-edit" style="display:none; flex:1; gap:4px; flex-wrap:wrap; align-items:center;">
-        <input type="text" class="loc-edit-name" value="${loc.name}" placeholder="場所名" style="flex:1; min-width:120px;">
-        <input type="number" class="loc-edit-lat" value="${loc.lat || ''}" placeholder="緯度" step="any" style="width:100px;">
-        <input type="number" class="loc-edit-lng" value="${loc.lng || ''}" placeholder="経度" step="any" style="width:100px;">
-      </div>`;
-    row.innerHTML = viewHtml + editHtml;
+    const span = document.createElement("span");
+    span.textContent = loc.name + coordStr;
+    row.appendChild(span);
 
-    // 編集ボタン
     const editBtn = document.createElement("button");
     editBtn.type = "button";
     editBtn.className = "btn btn-sm";
     editBtn.textContent = "編集";
-    editBtn.addEventListener("click", () => {
-      const isEditing = row.querySelector(".loc-edit").style.display !== "none";
-      if (!isEditing) {
-        row.querySelector(".loc-view").style.display = "none";
-        row.querySelector(".loc-edit").style.display = "flex";
-        editBtn.textContent = "保存";
-        delBtn.textContent = "キャンセル";
-      } else {
-        const newName = row.querySelector(".loc-edit-name").value.trim();
-        const newLat = parseFloat(row.querySelector(".loc-edit-lat").value) || null;
-        const newLng = parseFloat(row.querySelector(".loc-edit-lng").value) || null;
-        if (!newName) return;
-        locationsList[i] = { name: newName, lat: newLat, lng: newLng };
-        saveLocations().then(() => {
-          renderLocationList();
-          renderLocationDropdown();
-        }).catch(() => alert("保存に失敗しました"));
-      }
-    });
+    editBtn.addEventListener("click", () => setLocFormMode(i));
 
-    // 削除/キャンセルボタン
     const delBtn = document.createElement("button");
     delBtn.type = "button";
     delBtn.className = "btn danger btn-sm";
     delBtn.textContent = "削除";
     delBtn.addEventListener("click", async () => {
-      if (row.querySelector(".loc-edit").style.display !== "none") {
-        // キャンセル
-        row.querySelector(".loc-view").style.display = "";
-        row.querySelector(".loc-edit").style.display = "none";
-        editBtn.textContent = "編集";
-        delBtn.textContent = "削除";
-        return;
-      }
       if (!confirm(`「${loc.name}」を削除しますか？`)) return;
       locationsList.splice(i, 1);
+      if (editingLocIndex === i) setLocFormMode(-1);
       await saveLocations();
       renderLocationList();
       renderLocationDropdown();
@@ -270,6 +276,8 @@ function renderLocationList() {
     container.appendChild(row);
   });
 }
+
+document.getElementById("locCancelEdit").addEventListener("click", () => setLocFormMode(-1));
 
 function renderLocationDropdown() {
   editLocationSelect.innerHTML = '<option value="">--- プリセットから選択 ---</option>';
@@ -313,16 +321,24 @@ document.getElementById("locationForm").addEventListener("submit", async (e) => 
     const coords = await geocodeLocation(name);
     if (coords) { lat = coords.lat; lng = coords.lng; }
   }
-  locationsList.push({ name, lat, lng });
   try {
-    await saveLocations();
+    if (editingLocIndex >= 0) {
+      // 編集モード：既存データを上書き
+      locationsList[editingLocIndex] = { name, lat, lng };
+      await saveLocations();
+      setLocFormMode(-1);
+    } else {
+      // 新規追加モード
+      locationsList.push({ name, lat, lng });
+      await saveLocations();
+      resultEl.textContent = "";
+      e.target.reset();
+    }
     renderLocationList();
     renderLocationDropdown();
-    resultEl.textContent = "";
-    e.target.reset();
   } catch (err) {
-    locationsList.pop();
-    resultEl.textContent = "❌ 保存失敗: Firestoreのセキュリティルールに settings コレクションの許可が必要です。Firebase Console → Firestore → ルール を確認してください。";
+    if (editingLocIndex < 0) locationsList.pop();
+    resultEl.textContent = "❌ 保存失敗: Firestoreのセキュリティルールを確認してください。";
     resultEl.style.color = "red";
   }
 });

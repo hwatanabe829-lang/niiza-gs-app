@@ -364,6 +364,12 @@ form textarea { resize: vertical; min-height: 65px; }
 }
 .settings-item:last-child { border-bottom: none; }
 .settings-item span { flex: 1; }
+.settings-item.editing {
+  background: #e3f2fd;
+  border-radius: 4px;
+  padding-left: 6px;
+  border-left: 3px solid var(--blue);
+}
 .settings-add-form {
   display: flex;
   gap: 6px;
