@@ -317,4 +317,6 @@ nextBtn.addEventListener("click", () => {
   if (monthIndex < months.length - 1) { monthIndex++; renderCalendar(); }
 });
 
-fetchWeather().then(() => renderCalendar());
+// カレンダーを即座に表示し、天気データが取れたら再描画
+renderCalendar();
+fetchWeather().then(() => renderCalendar()).catch(() => {});
