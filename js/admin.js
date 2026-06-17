@@ -48,6 +48,8 @@ let currentLocation = null;
 let editContentItems = []; // 活動内容リスト（複数）
 let adminMap = null;
 let adminMarker = null;
+let locMap = null;      // 場所設定フォーム用地図
+let locMapMarker = null;
 
 // DOM refs
 const loginCard = document.getElementById("loginCard");
@@ -115,6 +117,38 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 // ============================================================
+// 場所設定フォーム用 地図（手動クリックで座標をセット）
+// ============================================================
+function initLocMap() {
+  if (locMap) { locMap.invalidateSize(); return; }
+  // 新座市中心座標
+  locMap = L.map("loc-map").setView([35.7768, 139.5703], 14);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution: "&copy; OpenStreetMap contributors",
+  }).addTo(locMap);
+
+  locMap.on("click", (e) => {
+    const { lat, lng } = e.latlng;
+    document.getElementById("locLat").value = lat.toFixed(6);
+    document.getElementById("locLng").value = lng.toFixed(6);
+    const resultEl = document.getElementById("locGeocodeResult");
+    resultEl.textContent = `📍 地図から選択: (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
+    resultEl.style.color = "green";
+    if (locMapMarker) locMapMarker.remove();
+    locMapMarker = L.marker([lat, lng]).addTo(locMap);
+  });
+}
+
+function syncLocMapMarker() {
+  const lat = parseFloat(document.getElementById("locLat").value);
+  const lng = parseFloat(document.getElementById("locLng").value);
+  if (!locMap || isNaN(lat) || isNaN(lng)) return;
+  if (locMapMarker) locMapMarker.remove();
+  locMapMarker = L.marker([lat, lng]).addTo(locMap);
+  locMap.setView([lat, lng], 16);
+}
+
+// ============================================================
 // タブ切り替え
 // ============================================================
 document.querySelectorAll(".tab-btn").forEach((btn) => {
@@ -123,6 +157,10 @@ document.querySelectorAll(".tab-btn").forEach((btn) => {
     document.querySelectorAll(".tab-pane").forEach((p) => p.classList.add("hidden"));
     btn.classList.add("active");
     document.getElementById("tab-" + btn.dataset.tab).classList.remove("hidden");
+    if (btn.dataset.tab === "settings") {
+      // 設定タブが表示されてから地図を初期化（非表示だと寸法が取れないため）
+      setTimeout(initLocMap, 50);
+    }
   });
 });
 
@@ -271,6 +309,8 @@ function setLocFormMode(index) {
     document.querySelectorAll("#locationList .settings-item").forEach((r, i) => {
       r.classList.toggle("editing", i === index);
     });
+    // 既存の座標を地図に反映
+    syncLocMapMarker();
     // フォームまでスクロール
     document.getElementById("locName").focus();
     document.getElementById("locationForm").scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -346,8 +386,9 @@ document.getElementById("locGeocode").addEventListener("click", async () => {
     document.getElementById("locLng").value = coords.lng.toFixed(6);
     resultEl.textContent = `✅ 取得: 「${coords.found}」(${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}) ※地図クリックで微調整可能`;
     resultEl.style.color = "green";
+    syncLocMapMarker();
   } else {
-    resultEl.textContent = "❌ 見つかりませんでした。住所で検索するか（例: 新座市栄3丁目）、地図を直接クリックして場所を指定してください。";
+    resultEl.textContent = "❌ 自動取得できませんでした。下の地図をクリックして場所を指定してください。";
     resultEl.style.color = "red";
   }
 });
