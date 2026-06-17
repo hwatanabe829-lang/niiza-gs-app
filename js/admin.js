@@ -800,7 +800,7 @@ editForm.addEventListener("submit", async (e) => {
     },
     { merge: true }
   );
-  saveResult.textContent = "✅ 保存しました。";
+  editModal.classList.add("hidden");
   renderCalendar();
 });
 
