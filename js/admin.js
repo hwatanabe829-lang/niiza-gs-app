@@ -151,16 +151,42 @@ async function loadSettings() {
 }
 
 // ============================================================
-// ジオコーディング
-// 優先順: 1) 国土地理院API（日本住所に強い）→ 2) Nominatim（OSM）
+// ジオコーディング（4段階フォールバック）
+// 1) Overpass API（OSM施設名直接検索・新座市内限定）
+// 2) 国土地理院 住所検索API
+// 3) Nominatim bounded（新座市バウンディングボックス内）
+// 4) Nominatim 通常検索（新座市付き）
 // ============================================================
 async function geocodeLocation(name) {
+  // 新座市バウンディングボックス
+  const BBOX_OVERPASS = "35.742,139.502,35.835,139.620"; // S,W,N,E
+  const BBOX_NOM = "139.502,35.835,139.620,35.742";      // W,N,E,S (Nominatim viewbox)
   const withCity = name.includes("新座") ? name : "新座市 " + name;
 
-  // 1. 国土地理院 住所検索API（無料・日本特化）
+  // 1. Overpass API：OSMから施設名で直接検索（公園・緑地・建物など）
   try {
-    const gsiUrl = `https://msearch.gsi.go.jp/address-search/AddressSearch?q=${encodeURIComponent(withCity)}`;
-    const res = await fetch(gsiUrl);
+    const q = `[out:json][timeout:15];(`
+      + `node["name"="${name}"](${BBOX_OVERPASS});`
+      + `way["name"="${name}"](${BBOX_OVERPASS});`
+      + `relation["name"="${name}"](${BBOX_OVERPASS});`
+      + `);out center 1;`;
+    const res = await fetch(
+      `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(q)}`
+    );
+    const data = await res.json();
+    if (data.elements?.length > 0) {
+      const el = data.elements[0];
+      const lat = el.lat ?? el.center?.lat;
+      const lng = el.lon ?? el.center?.lon;
+      if (lat && lng) return { lat, lng, found: el.tags?.name || name };
+    }
+  } catch {}
+
+  // 2. 国土地理院 住所検索API（日本の住所・地名に強い）
+  try {
+    const res = await fetch(
+      `https://msearch.gsi.go.jp/address-search/AddressSearch?q=${encodeURIComponent(withCity)}`
+    );
     const data = await res.json();
     if (Array.isArray(data) && data.length > 0) {
       const [lng, lat] = data[0].geometry.coordinates;
@@ -168,15 +194,30 @@ async function geocodeLocation(name) {
     }
   } catch {}
 
-  // 2. Nominatim / OpenStreetMap（新座市エリアを優先）
+  // 3. Nominatim：施設名のみで新座市エリア内を検索（bounded）
   try {
-    // viewbox = 新座市の境界 (minLng,maxLat,maxLng,minLat)
-    const nomUrl =
-      `https://nominatim.openstreetmap.org/search` +
-      `?q=${encodeURIComponent(withCity)}` +
-      `&format=json&limit=3&countrycodes=jp` +
-      `&viewbox=139.502,35.835,139.620,35.742&bounded=0`;
-    const res = await fetch(nomUrl, { headers: { "Accept-Language": "ja,en" } });
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(name)}`
+      + `&format=json&limit=3&countrycodes=jp&viewbox=${BBOX_NOM}&bounded=1`,
+      { headers: { "Accept-Language": "ja,en" } }
+    );
+    const data = await res.json();
+    if (data.length > 0) {
+      return {
+        lat: parseFloat(data[0].lat),
+        lng: parseFloat(data[0].lon),
+        found: data[0].display_name.split(",").slice(0, 3).join(", "),
+      };
+    }
+  } catch {}
+
+  // 4. Nominatim：「新座市 ＋ 施設名」で全国検索
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(withCity)}`
+      + `&format=json&limit=3&countrycodes=jp`,
+      { headers: { "Accept-Language": "ja,en" } }
+    );
     const data = await res.json();
     if (data.length > 0) {
       return {
