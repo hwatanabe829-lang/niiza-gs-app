@@ -173,6 +173,23 @@ main { max-width: 980px; margin: 0 auto; padding: 14px; }
   color: #555;
   margin-top: 1px;
 }
+.cell-notes-alert {
+  font-size: 0.62rem;
+  background: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffc107;
+  border-radius: 4px;
+  padding: 1px 4px;
+  margin-top: 2px;
+  font-weight: bold;
+}
+.cell-reschedule {
+  font-size: 0.62rem;
+  color: var(--orange);
+  font-weight: bold;
+  margin-top: 2px;
+}
+.zoukyrin { display: inline-block; vertical-align: middle; }
 
 /* ステータスバッジ */
 .status-mark {

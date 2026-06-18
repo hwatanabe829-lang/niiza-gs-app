@@ -77,6 +77,9 @@ const editNotes = document.getElementById("editNotes");
 const editParking = document.getElementById("editParking");
 const editParticipants = document.getElementById("editParticipants");
 const editAdminComment = document.getElementById("editAdminComment");
+const editCityParticipants = document.getElementById("editCityParticipants");
+const editRescheduleDate = document.getElementById("editRescheduleDate");
+const rescheduleField = document.getElementById("rescheduleField");
 const editLatLng = document.getElementById("editLatLng");
 const saveResult = document.getElementById("saveResult");
 const deleteEventBtn = document.getElementById("deleteEventBtn");
@@ -426,6 +429,19 @@ document.getElementById("locationForm").addEventListener("submit", async (e) => 
   }
 });
 
+editStatus.addEventListener("change", () => {
+  if (editStatus.value === "延期") {
+    rescheduleField.classList.remove("hidden");
+    if (!editRescheduleDate.value && currentDateStr) {
+      const next = new Date(currentDateStr + "T00:00:00");
+      next.setDate(next.getDate() + 1);
+      editRescheduleDate.value = formatDate(next);
+    }
+  } else {
+    rescheduleField.classList.add("hidden");
+  }
+});
+
 editLocationSelect.addEventListener("change", (e) => {
   const idx = e.target.value;
   if (idx === "") return;
@@ -683,6 +699,7 @@ function renderCalendar() {
   }
 
   loadStatusMarks(year, month);
+  loadRescheduleMarks(year, month);
 }
 
 async function loadStatusMarks(year, month) {
@@ -720,6 +737,47 @@ async function loadStatusMarks(year, month) {
       ptEl.textContent = "👥 " + data.participants + "名";
       cell.appendChild(ptEl);
     }
+
+    if (data.notes) {
+      const nEl = document.createElement("div");
+      nEl.className = "cell-notes-alert";
+      nEl.textContent = "⚠️ 注意あり";
+      cell.appendChild(nEl);
+    }
+
+    if (data.cityParticipants) {
+      const cpEl = document.createElement("div");
+      cpEl.className = "cell-participants";
+      cpEl.textContent = "🏛️ " + data.cityParticipants;
+      cell.appendChild(cpEl);
+    }
+
+    if (status === "延期" && data.rescheduleDate) {
+      const rEl = document.createElement("div");
+      rEl.className = "cell-reschedule";
+      const rd = new Date(data.rescheduleDate + "T00:00:00");
+      rEl.textContent = `🔄 振替: ${rd.getMonth() + 1}/${rd.getDate()}`;
+      cell.appendChild(rEl);
+    }
+  }
+}
+
+// 振替日として作成されたイベントもカレンダーに表示する
+async function loadRescheduleMarks(year, month) {
+  const prefix = `${year}-${String(month).padStart(2, "0")}`;
+  for (const cell of calendarGrid.querySelectorAll(".day-cell:not(.activity)")) {
+    const dateStr = cell.dataset.date;
+    if (!dateStr || !dateStr.startsWith(prefix)) continue;
+    const snap = await getDoc(doc(db, "activities", dateStr));
+    if (!snap.exists() || !snap.data().isReschedule) continue;
+    cell.classList.add("activity");
+    cell.style.borderColor = "var(--orange)";
+    cell.style.background = "#fff8e1";
+    const mark = document.createElement("span");
+    mark.className = "cell-reschedule";
+    mark.textContent = "🔄 振替活動日";
+    cell.appendChild(mark);
+    cell.addEventListener("click", () => openEdit(dateStr));
   }
 }
 
@@ -791,6 +849,18 @@ async function openEdit(dateStr) {
   editParking.checked = data.parking || false;
   editParticipants.value = data.participants || "";
   editAdminComment.value = data.adminComment || "";
+  editCityParticipants.value = data.cityParticipants || "";
+  editRescheduleDate.value = data.rescheduleDate || "";
+  if (data.status === "延期") {
+    rescheduleField.classList.remove("hidden");
+    if (!editRescheduleDate.value) {
+      const next = new Date(dateStr + "T00:00:00");
+      next.setDate(next.getDate() + 1);
+      editRescheduleDate.value = formatDate(next);
+    }
+  } else {
+    rescheduleField.classList.add("hidden");
+  }
 
   currentLocation = data.location?.lat
     ? { lat: data.location.lat, lng: data.location.lng }
@@ -874,14 +944,40 @@ editForm.addEventListener("submit", async (e) => {
         lng: currentLocation?.lng ?? null,
       },
       contentList: editContentItems,
-      content: editContentItems.join("・"), // 後方互換用
+      content: editContentItems.join("・"),
       notes: editNotes.value.trim(),
       parking: editParking.checked,
       participants: parseInt(editParticipants.value) || 0,
       adminComment: editAdminComment.value.trim(),
+      cityParticipants: editCityParticipants.value.trim(),
+      rescheduleDate: editStatus.value === "延期" ? (editRescheduleDate.value || null) : null,
     },
     { merge: true }
   );
+
+  // 延期の場合、振替日のイベントを自動作成（まだ存在しない場合）
+  const rDate = editStatus.value === "延期" ? editRescheduleDate.value : null;
+  if (rDate) {
+    const rRef = doc(db, "activities", rDate);
+    const rSnap = await getDoc(rRef);
+    if (!rSnap.exists()) {
+      await setDoc(rRef, {
+        date: rDate,
+        status: "予定",
+        location: { name: "", lat: null, lng: null },
+        contentList: [],
+        content: "",
+        notes: "",
+        parking: false,
+        participants: 0,
+        adminComment: `${currentDateStr} からの振替`,
+        cityParticipants: "",
+        rescheduleDate: null,
+        isReschedule: true,
+      });
+    }
+  }
+
   editModal.classList.add("hidden");
   renderCalendar();
 });

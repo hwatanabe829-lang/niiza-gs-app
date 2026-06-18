@@ -175,6 +175,7 @@ function renderCalendar() {
   }
 
   loadActivityData(year, month);
+  loadRescheduledDays(year, month);
 }
 
 async function loadActivityData(year, month) {
@@ -212,6 +213,39 @@ async function loadActivityData(year, month) {
       ptEl.textContent = "👥 " + data.participants + "名";
       cell.appendChild(ptEl);
     }
+
+    if (data.notes) {
+      const nEl = document.createElement("div");
+      nEl.className = "cell-notes-alert";
+      nEl.textContent = "⚠️ 注意あり";
+      cell.appendChild(nEl);
+    }
+
+    if (status === "延期" && data.rescheduleDate) {
+      const rEl = document.createElement("div");
+      rEl.className = "cell-reschedule";
+      const rd = new Date(data.rescheduleDate + "T00:00:00");
+      rEl.textContent = `🔄 振替: ${rd.getMonth() + 1}/${rd.getDate()}`;
+      cell.appendChild(rEl);
+    }
+  }
+}
+
+async function loadRescheduledDays(year, month) {
+  const prefix = `${year}-${String(month).padStart(2, "0")}`;
+  for (const cell of calendarGrid.querySelectorAll(".day-cell:not(.activity)")) {
+    const dateStr = cell.dataset.date;
+    if (!dateStr || !dateStr.startsWith(prefix)) continue;
+    const snap = await getDoc(doc(db, "activities", dateStr));
+    if (!snap.exists() || !snap.data().isReschedule) continue;
+    cell.classList.add("activity");
+    cell.style.borderColor = "var(--orange)";
+    cell.style.background = "#fff8e1";
+    const mark = document.createElement("div");
+    mark.className = "cell-reschedule";
+    mark.textContent = "🔄 振替活動日";
+    cell.appendChild(mark);
+    cell.addEventListener("click", () => openDetail(dateStr));
   }
 }
 
@@ -231,6 +265,27 @@ async function openDetail(dateStr) {
 
   modalStatus.textContent = status;
   modalStatus.className = `status-mark status-${status}`;
+
+  // 振替日表示
+  const rescheduleEl = document.getElementById("modalReschedule");
+  if (status === "延期" && data.rescheduleDate) {
+    const rd = new Date(data.rescheduleDate + "T00:00:00");
+    rescheduleEl.textContent = `🔄 振替予定日: ${rd.getFullYear()}年${rd.getMonth() + 1}月${rd.getDate()}日`;
+    rescheduleEl.classList.remove("hidden");
+  } else {
+    rescheduleEl.classList.add("hidden");
+  }
+
+  // 天気予報表示
+  const weatherEl = document.getElementById("modalWeather");
+  const w = weatherCache.get(dateStr);
+  if (w) {
+    weatherEl.innerHTML = `<strong>当日の天気予報（9〜12時）</strong>: ${weatherEmoji(w.code)} ${w.minTemp}〜${w.maxTemp}℃ 💧降水確率${w.prob}%`;
+    weatherEl.classList.remove("hidden");
+  } else {
+    weatherEl.classList.add("hidden");
+  }
+
   modalLocationName.textContent = data.location?.name || "（未設定）";
   // 活動内容：複数対応
   const contentList = Array.isArray(data.contentList) && data.contentList.length > 0
