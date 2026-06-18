@@ -263,13 +263,7 @@
 
 <script>
 (function(){
-  const imgs = [
-    "https://www.city.niiza.lg.jp/uploaded/image/19873.jpg",
-    "https://www.city.niiza.lg.jp/uploaded/image/29904.jpg",
-    "https://www.city.niiza.lg.jp/uploaded/image/19874.jpg",
-    "https://www.city.niiza.lg.jp/uploaded/image/29776.jpg",
-    "https://www.city.niiza.lg.jp/uploaded/image/29777.jpg",
-  ];
+  const imgs = ["img/zk1.jpg","img/zk2.jpg","img/zk3.jpg","img/zk4.jpg","img/zk5.jpg"];
   function pick() { return imgs[Math.floor(Math.random() * imgs.length)]; }
   document.querySelectorAll(".zk-spot,.zoukyrin").forEach(el => el.src = pick());
 })();

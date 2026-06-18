@@ -126,14 +126,15 @@
 
 <script>
 (function(){
-  const imgs = [
-    "https://www.city.niiza.lg.jp/uploaded/image/19873.jpg",
-    "https://www.city.niiza.lg.jp/uploaded/image/29904.jpg",
-    "https://www.city.niiza.lg.jp/uploaded/image/19874.jpg",
-    "https://www.city.niiza.lg.jp/uploaded/image/29776.jpg",
-    "https://www.city.niiza.lg.jp/uploaded/image/29777.jpg",
-  ];
-  function pick() { return imgs[Math.floor(Math.random() * imgs.length)]; }
+  const imgs = ["img/zk1.jpg","img/zk2.jpg","img/zk3.jpg","img/zk4.jpg","img/zk5.jpg"];
+  const used = [];
+  function pick() {
+    const remaining = imgs.filter(i => !used.includes(i));
+    const pool = remaining.length > 0 ? remaining : imgs;
+    const chosen = pool[Math.floor(Math.random() * pool.length)];
+    used.push(chosen);
+    return chosen;
+  }
   document.querySelectorAll(".zk-spot,.zoukyrin").forEach(el => el.src = pick());
 })();
 </script>
