@@ -79,7 +79,6 @@ const editNotes = document.getElementById("editNotes");
 const editParking = document.getElementById("editParking");
 const editParticipants = document.getElementById("editParticipants");
 const editAdminComment = document.getElementById("editAdminComment");
-const editCityParticipants = document.getElementById("editCityParticipants");
 const editRescheduleDate = document.getElementById("editRescheduleDate");
 const rescheduleField = document.getElementById("rescheduleField");
 const saveResult = document.getElementById("saveResult");
