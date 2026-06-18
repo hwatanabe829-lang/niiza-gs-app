@@ -123,6 +123,16 @@
         </form>
       </section>
 
+      <section class="admin-section">
+        <h3>🏛️ 市側参加者リスト</h3>
+        <p class="help-text">活動編集画面でプルダウン選択できる市側参加者を登録します。</p>
+        <div id="cityStaffList" class="settings-list"></div>
+        <form id="cityStaffForm" class="settings-add-form">
+          <input type="text" id="cityStaffName" placeholder="例: 田中課長、鈴木担当" required>
+          <button type="submit" class="btn">追加</button>
+        </form>
+      </section>
+
     </div>
 
     <!-- ===== 機材・備品タブ ===== -->
@@ -250,8 +260,14 @@
       </div>
 
       <div class="field">
-        <label for="editCityParticipants">🏛️ 市側参加者（内部管理）</label>
-        <input type="text" id="editCityParticipants" placeholder="例: 田中課長、鈴木担当（一般公開されません）">
+        <label>🏛️ 市側参加者（内部管理）</label>
+        <ul id="editCityParticipantList" class="content-edit-list"></ul>
+        <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-top:4px;">
+          <select id="editCityStaffSelect" style="flex:1; min-width:150px;">
+            <option value="">--- リストから選択 ---</option>
+          </select>
+          <button type="button" id="addCityStaffBtn" class="btn btn-sm">＋追加</button>
+        </div>
       </div>
 
       <div class="field">

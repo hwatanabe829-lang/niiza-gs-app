@@ -41,11 +41,13 @@ if (monthIndex === -1) monthIndex = 0;
 // 設定キャッシュ
 let locationsList = [];    // [{id, name, lat, lng}]
 let activityTypesList = []; // [string]
+let cityStaffList = [];     // [string]
 
 // 編集状態
 let currentDateStr = null;
 let currentLocation = null;
-let editContentItems = []; // 活動内容リスト（複数）
+let editContentItems = [];      // 活動内容リスト（複数）
+let editCityParticipants = [];  // 市側参加者リスト（複数）
 let adminMap = null;
 let adminMarker = null;
 let locMap = null;      // 場所設定フォーム用地図
@@ -171,22 +173,26 @@ document.querySelectorAll(".tab-btn").forEach((btn) => {
 // ============================================================
 async function loadSettings() {
   try {
-    const [locSnap, actSnap] = await Promise.all([
+    const [locSnap, actSnap, staffSnap] = await Promise.all([
       getDoc(doc(db, "settings", "locations")),
       getDoc(doc(db, "settings", "activityTypes")),
+      getDoc(doc(db, "settings", "cityStaff")),
     ]);
     locationsList = locSnap.exists() ? (locSnap.data().list || []) : [];
     activityTypesList = actSnap.exists() ? (actSnap.data().list || []) : [];
+    cityStaffList = staffSnap.exists() ? (staffSnap.data().list || []) : [];
   } catch {
-    // Firestoreルール未設定時でもカレンダーは動作する
     locationsList = [];
     activityTypesList = [];
+    cityStaffList = [];
   }
 
   renderLocationList();
   renderActivityTypeList();
   renderLocationDropdown();
   renderActivityTypeDropdown();
+  renderCityStaffList();
+  renderCityStaffDropdown();
   loadEquipment();
 }
 
@@ -530,6 +536,104 @@ document.getElementById("equipmentForm").addEventListener("submit", async (e) =>
 });
 
 // ============================================================
+// 市側参加者設定
+// ============================================================
+async function saveCityStaff() {
+  await setDoc(doc(db, "settings", "cityStaff"), { list: cityStaffList });
+}
+
+function renderCityStaffList() {
+  const container = document.getElementById("cityStaffList");
+  if (!container) return;
+  container.innerHTML = "";
+  if (cityStaffList.length === 0) {
+    container.innerHTML = '<p class="help-text">まだ登録されていません</p>';
+    return;
+  }
+  cityStaffList.forEach((name, i) => {
+    const row = document.createElement("div");
+    row.className = "settings-item";
+    const span = document.createElement("span");
+    span.textContent = name;
+    const delBtn = document.createElement("button");
+    delBtn.type = "button";
+    delBtn.className = "btn danger btn-sm";
+    delBtn.textContent = "削除";
+    delBtn.addEventListener("click", async () => {
+      cityStaffList.splice(i, 1);
+      await saveCityStaff();
+      renderCityStaffList();
+      renderCityStaffDropdown();
+    });
+    row.appendChild(span);
+    row.appendChild(delBtn);
+    container.appendChild(row);
+  });
+}
+
+function renderCityStaffDropdown() {
+  const sel = document.getElementById("editCityStaffSelect");
+  if (!sel) return;
+  sel.innerHTML = '<option value="">--- リストから選択 ---</option>';
+  cityStaffList.forEach((name) => {
+    const opt = document.createElement("option");
+    opt.value = name;
+    opt.textContent = name;
+    sel.appendChild(opt);
+  });
+}
+
+document.getElementById("cityStaffForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const name = document.getElementById("cityStaffName").value.trim();
+  if (!name) return;
+  cityStaffList.push(name);
+  try {
+    await saveCityStaff();
+    renderCityStaffList();
+    renderCityStaffDropdown();
+    e.target.reset();
+  } catch {
+    cityStaffList.pop();
+    alert("保存に失敗しました");
+  }
+});
+
+function renderEditCityParticipantList() {
+  const ul = document.getElementById("editCityParticipantList");
+  if (!ul) return;
+  ul.innerHTML = "";
+  if (editCityParticipants.length === 0) {
+    ul.innerHTML = '<li class="help-text" style="list-style:none; padding:4px 0;">（未選択）</li>';
+    return;
+  }
+  editCityParticipants.forEach((name, i) => {
+    const li = document.createElement("li");
+    li.style.cssText = "display:flex; align-items:center; gap:6px; padding:3px 0;";
+    li.innerHTML = `<span style="flex:1;">${name}</span>`;
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "btn danger btn-sm";
+    btn.textContent = "削除";
+    btn.addEventListener("click", () => {
+      editCityParticipants.splice(i, 1);
+      renderEditCityParticipantList();
+    });
+    li.appendChild(btn);
+    ul.appendChild(li);
+  });
+}
+
+document.getElementById("addCityStaffBtn").addEventListener("click", () => {
+  const sel = document.getElementById("editCityStaffSelect");
+  const val = sel.value;
+  if (!val || editCityParticipants.includes(val)) return;
+  editCityParticipants.push(val);
+  sel.value = "";
+  renderEditCityParticipantList();
+});
+
+// ============================================================
 // カレンダー
 // ============================================================
 function renderCalendar() {
@@ -638,10 +742,11 @@ async function loadStatusMarks(year, month) {
       cell.appendChild(nEl);
     }
 
-    if (data.cityParticipants) {
+    const cp = Array.isArray(data.cityParticipants) ? data.cityParticipants : (data.cityParticipants ? [data.cityParticipants] : []);
+    if (cp.length > 0) {
       const cpEl = document.createElement("div");
       cpEl.className = "cell-participants";
-      cpEl.textContent = "🏛️ " + data.cityParticipants;
+      cpEl.textContent = "🏛️ " + cp.join("・");
       cell.appendChild(cpEl);
     }
 
@@ -742,7 +847,9 @@ async function openEdit(dateStr) {
   editParking.checked = data.parking || false;
   editParticipants.value = data.participants || "";
   editAdminComment.value = data.adminComment || "";
-  editCityParticipants.value = data.cityParticipants || "";
+  editCityParticipants = Array.isArray(data.cityParticipants) ? [...data.cityParticipants]
+    : data.cityParticipants ? [data.cityParticipants] : [];
+  renderEditCityParticipantList();
   editRescheduleDate.value = data.rescheduleDate || "";
   if (data.status === "延期") {
     rescheduleField.classList.remove("hidden");
@@ -813,7 +920,7 @@ editForm.addEventListener("submit", async (e) => {
       parking: editParking.checked,
       participants: parseInt(editParticipants.value) || 0,
       adminComment: editAdminComment.value.trim(),
-      cityParticipants: editCityParticipants.value.trim(),
+      cityParticipants: editCityParticipants,
       rescheduleDate: editStatus.value === "延期" ? (editRescheduleDate.value || null) : null,
     },
     { merge: true }
