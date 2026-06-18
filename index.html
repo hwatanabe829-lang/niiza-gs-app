@@ -30,6 +30,7 @@
   <div class="calendar-nav">
     <button id="prevMonthBtn">&lt; 前月</button>
     <div class="month-label" id="monthLabel"></div>
+    <img class="zk-spot" alt="ゾウキリン" style="height:36px;width:auto;opacity:0.85;">
     <button id="nextMonthBtn">次月 &gt;</button>
   </div>
 
@@ -111,12 +112,31 @@
 </div>
 
 <footer class="site-footer">
+  <div style="display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:10px;">
+    <img class="zk-spot" alt="ゾウキリン" style="height:60px;width:auto;opacity:0.9;">
+    <img class="zk-spot" alt="ゾウキリン" style="height:48px;width:auto;opacity:0.8;">
+    <img class="zk-spot" alt="ゾウキリン" style="height:54px;width:auto;opacity:0.85;">
+  </div>
   <h4>⚠️ 免責事項</h4>
   <p>
     このアプリを利用して発生した損害（けが・事故・データの損失等を含む）について、新座市およびグリーンサポーター運営事務局は一切の責任を負いません。
     活動への参加は自己の責任において行ってください。掲載情報は変更される場合があります。最新情報はみどりと公園課（048-477-2987）にお問い合わせください。
   </p>
 </footer>
+
+<script>
+(function(){
+  const imgs = [
+    "https://www.city.niiza.lg.jp/uploaded/image/19873.jpg",
+    "https://www.city.niiza.lg.jp/uploaded/image/29904.jpg",
+    "https://www.city.niiza.lg.jp/uploaded/image/19874.jpg",
+    "https://www.city.niiza.lg.jp/uploaded/image/29776.jpg",
+    "https://www.city.niiza.lg.jp/uploaded/image/29777.jpg",
+  ];
+  function pick() { return imgs[Math.floor(Math.random() * imgs.length)]; }
+  document.querySelectorAll(".zk-spot,.zoukyrin").forEach(el => el.src = pick());
+})();
+</script>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script type="module" src="js/app.js"></script>

@@ -265,5 +265,19 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script type="module" src="js/admin.js"></script>
+
+<script>
+(function(){
+  const imgs = [
+    "https://www.city.niiza.lg.jp/uploaded/image/19873.jpg",
+    "https://www.city.niiza.lg.jp/uploaded/image/29904.jpg",
+    "https://www.city.niiza.lg.jp/uploaded/image/19874.jpg",
+    "https://www.city.niiza.lg.jp/uploaded/image/29776.jpg",
+    "https://www.city.niiza.lg.jp/uploaded/image/29777.jpg",
+  ];
+  function pick() { return imgs[Math.floor(Math.random() * imgs.length)]; }
+  document.querySelectorAll(".zk-spot,.zoukyrin").forEach(el => el.src = pick());
+})();
+</script>
 </body>
 </html>
