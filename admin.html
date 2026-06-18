@@ -98,16 +98,8 @@
             <label for="locName">場所名</label>
             <input type="text" id="locName" placeholder="例: 栄3丁目緑地、西堀2丁目憩いの森" required>
           </div>
-          <div style="display:flex; gap:8px;">
-            <div class="field" style="flex:1;">
-              <label for="locLat">緯度</label>
-              <input type="number" id="locLat" placeholder="例: 35.7768" step="any">
-            </div>
-            <div class="field" style="flex:1;">
-              <label for="locLng">経度</label>
-              <input type="number" id="locLng" placeholder="例: 139.5703" step="any">
-            </div>
-          </div>
+          <input type="hidden" id="locLat">
+          <input type="hidden" id="locLng">
           <p id="locGeocodeResult" class="help-text"></p>
           <div class="field">
             <label>地図をクリックして場所を指定</label>
@@ -226,7 +218,6 @@
       <div class="field">
         <label>地図をクリックして場所を設定</label>
         <div id="admin-map"></div>
-        <p class="help-text" id="editLatLng">緯度・経度: 未設定（地図をクリックしてください）</p>
       </div>
 
       <div class="field">

@@ -80,7 +80,6 @@ const editAdminComment = document.getElementById("editAdminComment");
 const editCityParticipants = document.getElementById("editCityParticipants");
 const editRescheduleDate = document.getElementById("editRescheduleDate");
 const rescheduleField = document.getElementById("rescheduleField");
-const editLatLng = document.getElementById("editLatLng");
 const saveResult = document.getElementById("saveResult");
 const deleteEventBtn = document.getElementById("deleteEventBtn");
 
@@ -344,7 +343,6 @@ editLocationSelect.addEventListener("change", (e) => {
   editLocationName.value = loc.name;
   if (loc.lat && loc.lng) {
     currentLocation = { lat: loc.lat, lng: loc.lng };
-    updateLatLngLabel();
     if (adminMap) {
       adminMap.setView([loc.lat, loc.lng], 16);
       if (adminMarker) adminMarker.remove();
@@ -766,11 +764,6 @@ async function openEdit(dateStr) {
   setTimeout(() => initAdminMap(currentLocation), 100);
 }
 
-function updateLatLngLabel() {
-  editLatLng.textContent = currentLocation
-    ? `緯度・経度: ${Number(currentLocation.lat).toFixed(6)}, ${Number(currentLocation.lng).toFixed(6)}`
-    : "緯度・経度: 未設定（地図をクリックしてください）";
-}
 
 function initAdminMap(location) {
   const center = location ? [location.lat, location.lng] : [35.7768, 139.5703];
@@ -781,8 +774,7 @@ function initAdminMap(location) {
     }).addTo(adminMap);
     adminMap.on("click", (e) => {
       currentLocation = { lat: e.latlng.lat, lng: e.latlng.lng };
-      updateLatLngLabel();
-      if (adminMarker) adminMarker.remove();
+        if (adminMarker) adminMarker.remove();
       adminMarker = L.marker([e.latlng.lat, e.latlng.lng]).addTo(adminMap);
     });
   } else {
