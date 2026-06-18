@@ -864,7 +864,6 @@ async function openEdit(dateStr) {
   currentLocation = data.location?.lat
     ? { lat: data.location.lat, lng: data.location.lng }
     : null;
-  updateLatLngLabel();
 
   editModal.classList.remove("hidden");
   setTimeout(() => initAdminMap(currentLocation), 100);
