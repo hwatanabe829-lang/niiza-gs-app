@@ -91,29 +91,26 @@
 
       <section class="admin-section">
         <h3>📍 活動場所リスト</h3>
-        <p class="help-text">場所名を入力して「座標を自動取得」を押すと座標が自動でセットされます。</p>
+        <p class="help-text">場所名を入力し、下の地図をクリックして座標を指定してください。</p>
         <div id="locationList" class="settings-list"></div>
         <form id="locationForm">
           <div class="field">
             <label for="locName">場所名</label>
-            <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
-              <input type="text" id="locName" placeholder="例: 栄3丁目緑地、西堀2丁目憩いの森" required style="flex:1; min-width:160px;">
-              <button type="button" id="locGeocode" class="btn btn-sm" style="white-space:nowrap;">📍 座標を自動取得</button>
-            </div>
+            <input type="text" id="locName" placeholder="例: 栄3丁目緑地、西堀2丁目憩いの森" required>
           </div>
           <div style="display:flex; gap:8px;">
             <div class="field" style="flex:1;">
-              <label for="locLat">緯度（自動取得 or 手入力）</label>
+              <label for="locLat">緯度</label>
               <input type="number" id="locLat" placeholder="例: 35.7768" step="any">
             </div>
             <div class="field" style="flex:1;">
-              <label for="locLng">経度（自動取得 or 手入力）</label>
+              <label for="locLng">経度</label>
               <input type="number" id="locLng" placeholder="例: 139.5703" step="any">
             </div>
           </div>
           <p id="locGeocodeResult" class="help-text"></p>
           <div class="field">
-            <label>地図をクリックして場所を指定（自動取得できない場合）</label>
+            <label>地図をクリックして場所を指定</label>
             <div id="loc-map" style="height:240px; border-radius:6px; border:1px solid var(--border);"></div>
             <p class="help-text" style="margin-top:4px;">地図をクリックすると緯度・経度が自動でセットされます。ピンチ/スクロールで拡大できます。</p>
           </div>
@@ -223,10 +220,7 @@
         <select id="editLocationSelect" style="margin-bottom:6px;">
           <option value="">--- プリセットから選択 ---</option>
         </select>
-        <div style="display:flex; gap:6px; align-items:center;">
-          <input type="text" id="editLocationName" placeholder="場所名（手入力も可）" style="flex:1;">
-          <button type="button" id="geocodeBtn" class="btn btn-sm" style="white-space:nowrap;">🔍 地図で確認</button>
-        </div>
+        <input type="text" id="editLocationName" placeholder="場所名（手入力）">
       </div>
 
       <div class="field">

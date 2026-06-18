@@ -191,86 +191,6 @@ async function loadSettings() {
   loadEquipment();
 }
 
-// ============================================================
-// ジオコーディング（4段階フォールバック）
-// 1) Overpass API（OSM施設名直接検索・新座市内限定）
-// 2) 国土地理院 住所検索API
-// 3) Nominatim bounded（新座市バウンディングボックス内）
-// 4) Nominatim 通常検索（新座市付き）
-// ============================================================
-async function geocodeLocation(name) {
-  // 新座市バウンディングボックス
-  const BBOX_OVERPASS = "35.742,139.502,35.835,139.620"; // S,W,N,E
-  const BBOX_NOM = "139.502,35.835,139.620,35.742";      // W,N,E,S (Nominatim viewbox)
-  const withCity = name.includes("新座") ? name : "新座市 " + name;
-
-  // 1. Overpass API：OSMから施設名で直接検索（公園・緑地・建物など）
-  try {
-    const q = `[out:json][timeout:15];(`
-      + `node["name"="${name}"](${BBOX_OVERPASS});`
-      + `way["name"="${name}"](${BBOX_OVERPASS});`
-      + `relation["name"="${name}"](${BBOX_OVERPASS});`
-      + `);out center 1;`;
-    const res = await fetch(
-      `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(q)}`
-    );
-    const data = await res.json();
-    if (data.elements?.length > 0) {
-      const el = data.elements[0];
-      const lat = el.lat ?? el.center?.lat;
-      const lng = el.lon ?? el.center?.lon;
-      if (lat && lng) return { lat, lng, found: el.tags?.name || name };
-    }
-  } catch {}
-
-  // 2. 国土地理院 住所検索API（日本の住所・地名に強い）
-  try {
-    const res = await fetch(
-      `https://msearch.gsi.go.jp/address-search/AddressSearch?q=${encodeURIComponent(withCity)}`
-    );
-    const data = await res.json();
-    if (Array.isArray(data) && data.length > 0) {
-      const [lng, lat] = data[0].geometry.coordinates;
-      return { lat, lng, found: data[0].properties.title };
-    }
-  } catch {}
-
-  // 3. Nominatim：施設名のみで新座市エリア内を検索（bounded）
-  try {
-    const res = await fetch(
-      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(name)}`
-      + `&format=json&limit=3&countrycodes=jp&viewbox=${BBOX_NOM}&bounded=1`,
-      { headers: { "Accept-Language": "ja,en" } }
-    );
-    const data = await res.json();
-    if (data.length > 0) {
-      return {
-        lat: parseFloat(data[0].lat),
-        lng: parseFloat(data[0].lon),
-        found: data[0].display_name.split(",").slice(0, 3).join(", "),
-      };
-    }
-  } catch {}
-
-  // 4. Nominatim：「新座市 ＋ 施設名」で全国検索
-  try {
-    const res = await fetch(
-      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(withCity)}`
-      + `&format=json&limit=3&countrycodes=jp`,
-      { headers: { "Accept-Language": "ja,en" } }
-    );
-    const data = await res.json();
-    if (data.length > 0) {
-      return {
-        lat: parseFloat(data[0].lat),
-        lng: parseFloat(data[0].lon),
-        found: data[0].display_name.split(",").slice(0, 3).join(", "),
-      };
-    }
-  } catch {}
-
-  return null;
-}
 
 // ============================================================
 // 場所設定
@@ -374,27 +294,6 @@ function renderLocationDropdown() {
   });
 }
 
-document.getElementById("locGeocode").addEventListener("click", async () => {
-  const name = document.getElementById("locName").value.trim();
-  if (!name) { alert("場所名を入力してください"); return; }
-  const btn = document.getElementById("locGeocode");
-  const resultEl = document.getElementById("locGeocodeResult");
-  btn.textContent = "検索中...";
-  btn.disabled = true;
-  const coords = await geocodeLocation(name);
-  btn.textContent = "📍 座標を自動取得";
-  btn.disabled = false;
-  if (coords) {
-    document.getElementById("locLat").value = coords.lat.toFixed(6);
-    document.getElementById("locLng").value = coords.lng.toFixed(6);
-    resultEl.textContent = `✅ 取得: 「${coords.found}」(${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}) ※地図クリックで微調整可能`;
-    resultEl.style.color = "green";
-    syncLocMapMarker();
-  } else {
-    resultEl.textContent = "❌ 自動取得できませんでした。下の地図をクリックして場所を指定してください。";
-    resultEl.style.color = "red";
-  }
-});
 
 document.getElementById("locationForm").addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -403,10 +302,6 @@ document.getElementById("locationForm").addEventListener("submit", async (e) => 
   let lng = parseFloat(document.getElementById("locLng").value) || null;
   const resultEl = document.getElementById("locGeocodeResult");
   if (!name) return;
-  if (!lat || !lng) {
-    const coords = await geocodeLocation(name);
-    if (coords) { lat = coords.lat; lng = coords.lng; }
-  }
   try {
     if (editingLocIndex >= 0) {
       // 編集モード：既存データを上書き
@@ -901,29 +796,6 @@ function initAdminMap(location) {
   setTimeout(() => adminMap.invalidateSize(), 100);
 }
 
-// 編集モーダル内の「地図で確認」ボタン
-document.getElementById("geocodeBtn").addEventListener("click", async () => {
-  const name = editLocationName.value.trim();
-  if (!name) { alert("場所名を入力してください"); return; }
-  const btn = document.getElementById("geocodeBtn");
-  btn.textContent = "検索中...";
-  btn.disabled = true;
-  const coords = await geocodeLocation(name);
-  btn.textContent = "🔍 地図で確認";
-  btn.disabled = false;
-  if (coords) {
-    currentLocation = { lat: coords.lat, lng: coords.lng };
-    updateLatLngLabel();
-    if (adminMap) {
-      adminMap.setView([coords.lat, coords.lng], 17);
-      if (adminMarker) adminMarker.remove();
-      adminMarker = L.marker([coords.lat, coords.lng]).addTo(adminMap);
-    }
-    saveResult.textContent = `📍 「${coords.found}」を地図に表示。違う場合は地図をクリックして修正できます。`;
-  } else {
-    alert("場所が見つかりませんでした。\n\nヒント:\n・施設名より住所で検索（例: 新座市栄3丁目）\n・「新座市〇〇公園」のように市名を付けて検索\n・見つからない場合は地図を直接クリックして場所を指定してください");
-  }
-});
 
 closeEditBtn.addEventListener("click", () => editModal.classList.add("hidden"));
 editModal.addEventListener("click", (e) => {
