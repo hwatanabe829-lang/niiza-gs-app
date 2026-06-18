@@ -96,7 +96,7 @@ loginForm.addEventListener("submit", async (e) => {
   try {
     await signInWithEmailAndPassword(
       auth,
-      document.getElementById("loginEmail").value,
+      "hwatanabe829@gmail.com",
       document.getElementById("loginPassword").value
     );
   } catch (err) {

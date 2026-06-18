@@ -22,17 +22,12 @@
     <h2>管理者ログイン</h2>
     <form id="loginForm">
       <div class="field">
-        <label for="loginEmail">メールアドレス</label>
-        <input type="email" id="loginEmail" required>
-      </div>
-      <div class="field">
         <label for="loginPassword">パスワード</label>
-        <input type="password" id="loginPassword" required>
+        <input type="password" id="loginPassword" required autofocus>
       </div>
       <button type="submit" class="btn">ログイン</button>
       <p class="error-msg hidden" id="loginError"></p>
     </form>
-    <p class="help-text">管理者アカウントはFirebase Authenticationで発行してください(README参照)。</p>
   </div>
 
   <!-- 管理パネル -->
