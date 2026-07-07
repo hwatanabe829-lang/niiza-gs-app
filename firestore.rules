@@ -9,9 +9,12 @@ service cloud.firestore {
       // 感想・改善点: 誰でも閲覧・新規投稿可。更新・削除は不可(投稿の改ざん防止)
       match /feedbacks/{feedbackId} {
         allow read: if true;
-        allow create: if request.resource.data.comment is string
+        allow create: if request.resource.data.keys().hasOnly(['name', 'comment', 'createdAt'])
+                       && request.resource.data.comment is string
                        && request.resource.data.comment.size() > 0
-                       && request.resource.data.comment.size() < 1000;
+                       && request.resource.data.comment.size() < 1000
+                       && request.resource.data.name is string
+                       && request.resource.data.name.size() < 100;
         allow update, delete: if request.auth != null;
       }
     }

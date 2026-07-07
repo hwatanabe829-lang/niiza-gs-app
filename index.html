@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="新座市の緑地整備ボランティア「グリーンサポーター(GS)」の活動予定カレンダー。活動場所・内容・注意点の確認や感想の投稿ができます。">
+<meta name="theme-color" content="#2e7d32">
 <title>新座市グリーンサポーター活動カレンダー</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -10,7 +12,7 @@
 <body>
 <header class="app-header">
   <h1>
-    <img class="zoukyrin" src="https://www.city.niiza.lg.jp/uploaded/image/19873.jpg" alt="ゾウキリン" style="height:42px; width:auto;">
+    <img class="zoukyrin" alt="ゾウキリン" style="height:42px; width:auto;">
     新座市グリーンサポーター活動カレンダー（令和8年度）
   </h1>
   <a href="admin.html">管理者ログイン</a>
@@ -93,11 +95,11 @@
       <form id="feedbackForm">
         <div class="field">
           <label for="feedbackName">お名前（任意）</label>
-          <input type="text" id="feedbackName" placeholder="例: 新座 太郎">
+          <input type="text" id="feedbackName" placeholder="例: 新座 太郎" maxlength="50">
         </div>
         <div class="field">
           <label for="feedbackComment">感想・改善点</label>
-          <textarea id="feedbackComment" required placeholder="活動の感想や改善提案などをご記入ください"></textarea>
+          <textarea id="feedbackComment" required maxlength="800" placeholder="活動の感想や改善提案などをご記入ください"></textarea>
         </div>
         <button type="submit" class="btn">投稿する</button>
       </form>

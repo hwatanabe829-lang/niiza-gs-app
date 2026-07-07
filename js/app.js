@@ -11,6 +11,7 @@ import {
   serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { firebaseConfig } from "./firebase-config.js";
+import { fetchMonthActivities } from "./store.js";
 import {
   getFiscalYearActivityDates,
   getFiscalYearMonths,
@@ -174,93 +175,116 @@ function renderCalendar() {
     calendarGrid.appendChild(cell);
   }
 
-  loadActivityData(year, month);
-  loadRescheduledDays(year, month);
+  loadMonthActivities(year, month);
 }
 
-async function loadActivityData(year, month) {
-  const prefix = `${year}-${String(month).padStart(2, "0")}`;
-  for (const cell of calendarGrid.querySelectorAll(".day-cell.activity")) {
+// 月送り連打時に古い読み込み結果を破棄するためのトークン
+let loadToken = 0;
+
+async function loadMonthActivities(year, month) {
+  const token = ++loadToken;
+  let monthData;
+  try {
+    monthData = await fetchMonthActivities(db, year, month);
+  } catch {
+    return; // 取得失敗でもカレンダー自体は表示済み
+  }
+  if (token !== loadToken) return;
+
+  for (const cell of calendarGrid.querySelectorAll(".day-cell[data-date]")) {
     const dateStr = cell.dataset.date;
-    if (!dateStr.startsWith(prefix)) continue;
-    const snap = await getDoc(doc(db, "activities", dateStr));
-    if (!snap.exists()) continue;
-    const data = snap.data();
-    const status = data.status || "予定";
-
-    const mark = document.createElement("span");
-    mark.className = `status-mark status-${status}`;
-    mark.textContent = status;
-    cell.appendChild(mark);
-
-    if (data.location?.name) {
-      const locEl = document.createElement("div");
-      locEl.className = "cell-location";
-      locEl.textContent = "📍 " + data.location.name;
-      cell.appendChild(locEl);
-    }
-
-    if (data.parking) {
-      const pEl = document.createElement("div");
-      pEl.className = "cell-parking";
-      pEl.textContent = "🅿 駐車可";
-      cell.appendChild(pEl);
-    }
-
-    if ((status === "実施" || status === "予定") && data.participants) {
-      const ptEl = document.createElement("div");
-      ptEl.className = "cell-participants";
-      ptEl.textContent = "👥 " + data.participants + "名";
-      cell.appendChild(ptEl);
-    }
-
-    if (data.notes) {
-      const nEl = document.createElement("div");
-      nEl.className = "cell-notes-alert";
-      nEl.textContent = "⚠️ 注意あり";
-      cell.appendChild(nEl);
-    }
-
-    if (status === "延期" && data.rescheduleDate) {
-      const rEl = document.createElement("div");
-      rEl.className = "cell-reschedule";
-      const rd = new Date(data.rescheduleDate + "T00:00:00");
-      rEl.textContent = `🔄 振替: ${rd.getMonth() + 1}/${rd.getDate()}`;
-      cell.appendChild(rEl);
+    const data = monthData.get(dateStr);
+    if (!data) continue;
+    if (cell.classList.contains("activity")) {
+      decorateActivityCell(cell, data);
+    } else if (data.isReschedule) {
+      // 振替日として追加された活動日
+      cell.classList.add("activity");
+      cell.style.borderColor = "var(--orange)";
+      cell.style.background = "#fff8e1";
+      const mark = document.createElement("div");
+      mark.className = "cell-reschedule";
+      mark.textContent = "🔄 振替活動日";
+      cell.appendChild(mark);
+      cell.addEventListener("click", () => openDetail(dateStr));
     }
   }
 }
 
-async function loadRescheduledDays(year, month) {
-  const prefix = `${year}-${String(month).padStart(2, "0")}`;
-  for (const cell of calendarGrid.querySelectorAll(".day-cell:not(.activity)")) {
-    const dateStr = cell.dataset.date;
-    if (!dateStr || !dateStr.startsWith(prefix)) continue;
-    const snap = await getDoc(doc(db, "activities", dateStr));
-    if (!snap.exists() || !snap.data().isReschedule) continue;
-    cell.classList.add("activity");
-    cell.style.borderColor = "var(--orange)";
-    cell.style.background = "#fff8e1";
-    const mark = document.createElement("div");
-    mark.className = "cell-reschedule";
-    mark.textContent = "🔄 振替活動日";
-    cell.appendChild(mark);
-    cell.addEventListener("click", () => openDetail(dateStr));
+function decorateActivityCell(cell, data) {
+  const status = data.status || "予定";
+
+  const mark = document.createElement("span");
+  mark.className = `status-mark status-${status}`;
+  mark.textContent = status;
+  cell.appendChild(mark);
+
+  if (data.location?.name) {
+    const locEl = document.createElement("div");
+    locEl.className = "cell-location";
+    locEl.textContent = "📍 " + data.location.name;
+    cell.appendChild(locEl);
+  }
+
+  if (data.parking) {
+    const pEl = document.createElement("div");
+    pEl.className = "cell-parking";
+    pEl.textContent = "🅿 駐車可";
+    cell.appendChild(pEl);
+  }
+
+  if ((status === "実施" || status === "予定") && data.participants) {
+    const ptEl = document.createElement("div");
+    ptEl.className = "cell-participants";
+    ptEl.textContent = "👥 " + data.participants + "名";
+    cell.appendChild(ptEl);
+  }
+
+  if (data.notes) {
+    const nEl = document.createElement("div");
+    nEl.className = "cell-notes-alert";
+    nEl.textContent = "⚠️ 注意あり";
+    cell.appendChild(nEl);
+  }
+
+  if (status === "延期" && data.rescheduleDate) {
+    const rEl = document.createElement("div");
+    rEl.className = "cell-reschedule";
+    const rd = new Date(data.rescheduleDate + "T00:00:00");
+    rEl.textContent = `🔄 振替: ${rd.getMonth() + 1}/${rd.getDate()}`;
+    cell.appendChild(rEl);
   }
 }
 
 async function openDetail(dateStr) {
   currentDateStr = dateStr;
-  const d = new Date(dateStr);
+  const d = new Date(dateStr + "T00:00:00");
   const holidayName = getHolidayName(dateStr);
   const dowStr = DOW_JA[d.getDay()];
   modalDate.textContent =
     `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日（${dowStr}）` +
     (holidayName ? ` 🎌 ${holidayName}` : "");
+
+  // 前回開いた日のデータが一瞬見えないよう、読み込み前にクリアする
+  modalStatus.textContent = "";
+  modalStatus.className = "status-mark";
+  modalLocationName.textContent = "読み込み中...";
+  modalContent.textContent = "";
+  modalNotes.textContent = "";
+  document.getElementById("modalReschedule").classList.add("hidden");
+  document.getElementById("modalParkingSection").classList.add("hidden");
+  document.getElementById("modalParticipantsSection").classList.add("hidden");
+  feedbackList.innerHTML = "";
   detailModal.classList.remove("hidden");
 
-  const snap = await getDoc(doc(db, "activities", dateStr));
-  const data = snap.exists() ? snap.data() : {};
+  let data = {};
+  try {
+    const snap = await getDoc(doc(db, "activities", dateStr));
+    data = snap.exists() ? snap.data() : {};
+  } catch {
+    modalLocationName.textContent = "（読み込みに失敗しました）";
+    return;
+  }
   const status = data.status || "予定";
 
   modalStatus.textContent = status;
@@ -292,12 +316,19 @@ async function openDetail(dateStr) {
     ? data.contentList
     : data.content ? [data.content] : [];
   if (contentList.length === 0) {
-    modalContent.innerHTML = "（未設定）";
+    modalContent.textContent = "（未設定）";
   } else if (contentList.length === 1) {
     modalContent.textContent = contentList[0];
   } else {
-    modalContent.innerHTML = "<ul style='margin:4px 0 0 16px; padding:0;'>" +
-      contentList.map(c => `<li>${c}</li>`).join("") + "</ul>";
+    const ul = document.createElement("ul");
+    ul.style.cssText = "margin:4px 0 0 16px; padding:0;";
+    contentList.forEach((c) => {
+      const li = document.createElement("li");
+      li.textContent = c;
+      ul.appendChild(li);
+    });
+    modalContent.textContent = "";
+    modalContent.appendChild(ul);
   }
   modalNotes.textContent = data.notes || "（未設定）";
 
@@ -339,11 +370,16 @@ function renderMap(location) {
 
 async function loadFeedback(dateStr) {
   feedbackList.innerHTML = "<li>読み込み中...</li>";
-  const q = query(
-    collection(db, "activities", dateStr, "feedbacks"),
-    orderBy("createdAt", "desc")
-  );
-  const snap = await getDocs(q);
+  let snap;
+  try {
+    snap = await getDocs(query(
+      collection(db, "activities", dateStr, "feedbacks"),
+      orderBy("createdAt", "desc")
+    ));
+  } catch {
+    feedbackList.innerHTML = "<li>感想の読み込みに失敗しました</li>";
+    return;
+  }
   feedbackList.innerHTML = "";
   if (snap.empty) {
     feedbackList.innerHTML = "<li>まだ感想はありません</li>";
@@ -366,18 +402,31 @@ feedbackForm.addEventListener("submit", async (e) => {
   const name = document.getElementById("feedbackName").value.trim();
   const comment = document.getElementById("feedbackComment").value.trim();
   if (!comment) return;
-  await addDoc(collection(db, "activities", currentDateStr, "feedbacks"), {
-    name,
-    comment,
-    createdAt: serverTimestamp(),
-  });
-  feedbackForm.reset();
-  loadFeedback(currentDateStr);
+  const submitBtn = feedbackForm.querySelector("button[type='submit']");
+  submitBtn.disabled = true;
+  submitBtn.textContent = "投稿中...";
+  try {
+    await addDoc(collection(db, "activities", currentDateStr, "feedbacks"), {
+      name,
+      comment,
+      createdAt: serverTimestamp(),
+    });
+    feedbackForm.reset();
+    loadFeedback(currentDateStr);
+  } catch {
+    alert("投稿に失敗しました。通信環境をご確認のうえ、もう一度お試しください。");
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = "投稿する";
+  }
 });
 
 closeModalBtn.addEventListener("click", () => detailModal.classList.add("hidden"));
 detailModal.addEventListener("click", (e) => {
   if (e.target === detailModal) detailModal.classList.add("hidden");
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") detailModal.classList.add("hidden");
 });
 
 prevBtn.addEventListener("click", () => {
