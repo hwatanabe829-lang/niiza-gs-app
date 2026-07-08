@@ -31,7 +31,39 @@ service cloud.firestore {
     }
 
     // ===== 緑地管理システム（別アプリ・同一プロジェクトに相乗り） =====
-    // 予算情報を含む業務データのため、閲覧・書き込みとも職員(ログイン済み)のみ
+    // 予算情報を含む業務データのため、係ごとの専用アカウントのみ読み書き可
+    function isKoen() {
+      return request.auth != null && request.auth.token.email == 'hwatanabe829+koen@gmail.com';
+    }
+    function isMidori() {
+      return request.auth != null && request.auth.token.email == 'hwatanabe829+midori@gmail.com';
+    }
+
+    // 公園係のデータ領域
+    match /ryokuchi_koen_greens/{gsId} {
+      allow read, write: if isKoen();
+      match /photos/{photoId} {
+        allow read, write: if isKoen();
+      }
+    }
+    match /ryokuchi_koen_settings/{docId} {
+      allow read, write: if isKoen();
+    }
+
+    // みどりの係のデータ領域
+    match /ryokuchi_midori_greens/{gsId} {
+      allow read, write: if isMidori();
+      match /photos/{photoId} {
+        allow read, write: if isMidori();
+      }
+    }
+    match /ryokuchi_midori_settings/{docId} {
+      allow read, write: if isMidori();
+    }
+
+    // 旧・共有データ（みどりの係へ引き継ぎ後はバックアップとして残置）
+    // 移行期間中は旧バージョンのアプリも動くよう従来通りログイン済みなら読み書き可。
+    // 引き継ぎ完了後は read のみ isMidori() に絞ってよい
     match /ryokuchi_greens/{gsId} {
       allow read, write: if request.auth != null;
       match /photos/{photoId} {
