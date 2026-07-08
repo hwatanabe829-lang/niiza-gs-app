@@ -8,6 +8,9 @@ import {
   getDocs,
   orderBy,
   query,
+  where,
+  limit,
+  documentId,
   serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { firebaseConfig } from "./firebase-config.js";
@@ -173,14 +176,139 @@ function renderCalendar() {
       cell.addEventListener("click", () => openDetail(dateStr));
     }
 
-    if (dateStr === formatDate(today)) {
+    const todayStr = formatDate(today);
+    if (dateStr === todayStr) {
       cell.classList.add("today");
+    } else if (dateStr < todayStr) {
+      // 過ぎた日は薄くして、これからの活動日が目立つように（感想投稿のためクリックは可能）
+      cell.classList.add("past");
     }
 
     calendarGrid.appendChild(cell);
   }
 
   loadMonthActivities(year, month);
+}
+
+// ============================================================
+// 次回の活動ヒーローカード
+// ページを開いた人が一番知りたい「次はいつ・どこ」を最上部に表示する
+// ============================================================
+const nextActivityCard = document.getElementById("nextActivityCard");
+
+function daysUntilLabel(dateStr) {
+  const base = new Date();
+  base.setHours(0, 0, 0, 0);
+  const d = new Date(dateStr + "T00:00:00");
+  const diff = Math.round((d - base) / 86400000);
+  if (diff === 0) return "本日";
+  if (diff === 1) return "明日";
+  return `あと${diff}日`;
+}
+
+function heroDateLabel(dateStr) {
+  const d = new Date(dateStr + "T00:00:00");
+  return `${d.getMonth() + 1}月${d.getDate()}日（${DOW_JA[d.getDay()]}）`;
+}
+
+async function renderNextActivity() {
+  if (!nextActivityCard) return;
+  const todayStr = formatDate(new Date());
+  let dateStr = null;
+  let data = {};
+  let followup = null; // 次回が中止・延期のとき、その次の開催候補
+
+  try {
+    // 登録済みデータから今日以降の直近の活動日を取得（振替日も含まれる）
+    const snap = await getDocs(query(
+      collection(db, "activities"),
+      where(documentId(), ">=", todayStr),
+      orderBy(documentId()),
+      limit(5)
+    ));
+    if (!snap.empty) {
+      dateStr = snap.docs[0].id;
+      data = snap.docs[0].data();
+      const status = data.status || "予定";
+      if (status === "中止" || status === "延期") {
+        const next = snap.docs.slice(1).find((x) => {
+          const s = x.data().status || "予定";
+          return s !== "中止" && s !== "延期";
+        });
+        if (next) followup = next.id;
+      }
+    }
+  } catch {
+    // Firestoreが読めなくても下のフォールバックで表示する
+  }
+
+  if (!dateStr) {
+    // データ未登録でも活動日ルール（第一水曜＋第二以降の木曜）から次回を出す
+    const sorted = [...activityDates].sort();
+    dateStr = activityDates.has(todayStr) ? todayStr : (sorted.find((s) => s > todayStr) || null);
+    data = {};
+  }
+  if (!dateStr) {
+    nextActivityCard.classList.add("hidden");
+    return;
+  }
+
+  const status = data.status || "予定";
+  const cancelled = status === "中止" || status === "延期";
+  nextActivityCard.classList.toggle("cancelled", cancelled);
+  nextActivityCard.innerHTML = "";
+
+  const title = document.createElement("div");
+  title.className = "na-title";
+  title.textContent = dateStr === todayStr ? "🌱 本日は活動日です！" : "🌱 次回の活動";
+  nextActivityCard.appendChild(title);
+
+  const main = document.createElement("div");
+  main.className = "na-main";
+  const dateEl = document.createElement("span");
+  dateEl.className = "na-date";
+  dateEl.textContent = heroDateLabel(dateStr);
+  main.appendChild(dateEl);
+  const countEl = document.createElement("span");
+  countEl.className = "na-count";
+  countEl.textContent = cancelled ? status : daysUntilLabel(dateStr);
+  main.appendChild(countEl);
+  nextActivityCard.appendChild(main);
+
+  const infoBits = [];
+  if (data.location?.name) infoBits.push("📍 " + data.location.name);
+  const contentList = Array.isArray(data.contentList) && data.contentList.length > 0
+    ? data.contentList
+    : data.content ? [data.content] : [];
+  if (contentList.length) infoBits.push("✂️ " + contentList.join("・"));
+  if (data.parking) infoBits.push("🅿 駐車可");
+  const w = weatherCache.get(dateStr);
+  if (w) infoBits.push(`${weatherEmoji(w.code)} ${w.minTemp}〜${w.maxTemp}° 💧${w.prob}%`);
+  if (infoBits.length) {
+    const info = document.createElement("div");
+    info.className = "na-info";
+    info.textContent = infoBits.join("　");
+    nextActivityCard.appendChild(info);
+  }
+
+  if (cancelled) {
+    const note = document.createElement("div");
+    note.className = "na-followup";
+    note.textContent = status === "延期" && data.rescheduleDate
+      ? `🔄 ${heroDateLabel(data.rescheduleDate)}に振替予定です`
+      : followup
+        ? `次の開催予定: ${heroDateLabel(followup)}`
+        : "次の開催日はカレンダーでご確認ください";
+    nextActivityCard.appendChild(note);
+  }
+
+  const hint = document.createElement("div");
+  hint.className = "na-tap-hint";
+  hint.textContent = "タップで詳細・地図を表示 ▶";
+  nextActivityCard.appendChild(hint);
+
+  nextActivityCard.onclick = () => openDetail(dateStr);
+  nextActivityCard.classList.remove("hidden");
 }
 
 // 月送り連打時に古い読み込み結果を破棄するためのトークン
@@ -261,8 +389,12 @@ function decorateActivityCell(cell, data) {
   }
 }
 
+// 日付を連打したとき、遅れて届いた古い日のデータで表示が上書きされるのを防ぐ
+let detailToken = 0;
+
 async function openDetail(dateStr) {
   currentDateStr = dateStr;
+  const token = ++detailToken;
   const d = new Date(dateStr + "T00:00:00");
   const holidayName = getHolidayName(dateStr);
   const dowStr = DOW_JA[d.getDay()];
@@ -285,9 +417,11 @@ async function openDetail(dateStr) {
   let data = {};
   try {
     const snap = await getDoc(doc(db, "activities", dateStr));
+    if (token !== detailToken) return; // すでに別の日を開いている
     data = snap.exists() ? snap.data() : {};
   } catch {
-    modalLocationName.textContent = "（読み込みに失敗しました）";
+    if (token !== detailToken) return;
+    modalLocationName.textContent = "（読み込みに失敗しました。通信環境をご確認ください）";
     return;
   }
   const status = data.status || "予定";
@@ -373,7 +507,10 @@ function renderMap(location) {
   setTimeout(() => map.invalidateSize(), 100);
 }
 
+let feedbackToken = 0;
+
 async function loadFeedback(dateStr) {
+  const token = ++feedbackToken;
   feedbackList.innerHTML = "<li>読み込み中...</li>";
   let snap;
   try {
@@ -382,9 +519,11 @@ async function loadFeedback(dateStr) {
       orderBy("createdAt", "desc")
     ));
   } catch {
+    if (token !== feedbackToken) return;
     feedbackList.innerHTML = "<li>感想の読み込みに失敗しました</li>";
     return;
   }
+  if (token !== feedbackToken) return;
   feedbackList.innerHTML = "";
   if (snap.empty) {
     feedbackList.innerHTML = "<li>まだ感想はありません</li>";
@@ -441,6 +580,10 @@ nextBtn.addEventListener("click", () => {
   if (monthIndex < months.length - 1) { monthIndex++; renderCalendar(); }
 });
 
-// カレンダーを即座に表示し、天気データが取れたら再描画
+// カレンダーとヒーローカードを即座に表示し、天気データが取れたら再描画
 renderCalendar();
-fetchWeather().then(() => renderCalendar()).catch(() => {});
+renderNextActivity();
+fetchWeather().then(() => {
+  renderCalendar();
+  renderNextActivity();
+}).catch(() => {});

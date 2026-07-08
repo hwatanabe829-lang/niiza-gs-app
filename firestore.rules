@@ -6,6 +6,11 @@ service cloud.firestore {
       allow read: if true;
       allow write: if request.auth != null;
 
+      // 内部メモ: 職員(ログイン済み)のみ閲覧・編集可。一般には公開されない
+      match /internal/{docId} {
+        allow read, write: if request.auth != null;
+      }
+
       // 感想・改善点: 誰でも閲覧・新規投稿可。更新・削除は不可(投稿の改ざん防止)
       match /feedbacks/{feedbackId} {
         allow read: if true;

@@ -366,6 +366,64 @@ form textarea { resize: vertical; min-height: 65px; }
   font-size: 0.88rem;
   margin-bottom: 14px;
 }
+
+/* 次回の活動ヒーローカード（「次はいつ・どこ」をページを開いた瞬間に伝える） */
+.next-activity-card {
+  background: linear-gradient(135deg, var(--green-dark), var(--green));
+  color: #fff;
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin: 4px 0 14px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+}
+.next-activity-card:hover { filter: brightness(1.06); }
+.next-activity-card.cancelled { background: linear-gradient(135deg, #616161, #757575); }
+.na-title { font-size: 0.82rem; font-weight: bold; opacity: 0.9; }
+.na-main { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-top: 2px; }
+.na-date { font-size: 1.35rem; font-weight: bold; }
+.na-count {
+  background: rgba(255,255,255,0.25);
+  border-radius: 14px;
+  padding: 2px 12px;
+  font-weight: bold;
+  font-size: 0.92rem;
+}
+.na-info { font-size: 0.9rem; margin-top: 5px; opacity: 0.95; }
+.na-followup {
+  margin-top: 8px;
+  font-size: 0.86rem;
+  background: rgba(255,255,255,0.18);
+  padding: 4px 10px;
+  border-radius: 6px;
+  display: inline-block;
+}
+.na-tap-hint { font-size: 0.74rem; opacity: 0.75; margin-top: 6px; text-align: right; }
+
+/* 過ぎた日付は薄く表示し、これからの活動日が目立つようにする（感想投稿のためクリックは可能なまま） */
+.day-cell.past { opacity: 0.55; }
+.day-cell.past.activity { opacity: 0.68; }
+
+/* 保存完了トースト（管理画面: モーダルが閉じても結果が分かるように） */
+#adminToast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--green-dark);
+  color: #fff;
+  padding: 10px 22px;
+  border-radius: 22px;
+  font-size: 0.92rem;
+  font-weight: bold;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.3);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s, transform 0.25s;
+  z-index: 2000;
+  max-width: 92vw;
+}
+#adminToast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 .hidden { display: none !important; }
 .help-text { font-size: 0.78rem; color: var(--gray); }
 

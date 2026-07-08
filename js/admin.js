@@ -13,6 +13,7 @@ import {
   getDoc,
   setDoc,
   deleteDoc,
+  deleteField,
   writeBatch,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { firebaseConfig } from "./firebase-config.js";
@@ -905,8 +906,20 @@ async function openEdit(dateStr) {
     `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日（${DOW_JA[d.getDay()]}）` +
     (holidayName ? ` 🎌 ${holidayName}` : "");
 
-  const snap = await getDoc(doc(db, "activities", dateStr));
-  const data = snap.exists() ? snap.data() : {};
+  let data = {};
+  let internalMemo = null;
+  try {
+    // 内部メモは非公開のinternalサブコレクションに保存されている（旧データはactivities本体）
+    const [snap, memoSnap] = await Promise.all([
+      getDoc(doc(db, "activities", dateStr)),
+      getDoc(doc(db, "activities", dateStr, "internal", "memo")).catch(() => null),
+    ]);
+    data = snap.exists() ? snap.data() : {};
+    internalMemo = memoSnap && memoSnap.exists() ? memoSnap.data() : null;
+  } catch (err) {
+    alert("データの読み込みに失敗しました。通信環境をご確認ください。\n" + err.message);
+    return;
+  }
 
   editLocationName.value = data.location?.name || "";
   // 活動内容：配列(contentList)優先、旧string(content)は配列に変換
@@ -921,7 +934,7 @@ async function openEdit(dateStr) {
   editNotes.value = data.notes || "";
   editParking.checked = data.parking || false;
   editParticipants.value = data.participants || "";
-  editAdminComment.value = data.adminComment || "";
+  editAdminComment.value = internalMemo?.adminComment ?? data.adminComment ?? "";
   editCityParticipants = Array.isArray(data.cityParticipants) ? [...data.cityParticipants]
     : data.cityParticipants ? [data.cityParticipants] : [];
   renderEditCityParticipantList();
@@ -969,9 +982,36 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") editModal.classList.add("hidden");
 });
 
+// 保存・削除の結果をモーダルが閉じた後でも伝えるトースト
+function showToast(msg) {
+  let t = document.getElementById("adminToast");
+  if (!t) {
+    t = document.createElement("div");
+    t.id = "adminToast";
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(showToast._tm);
+  showToast._tm = setTimeout(() => t.classList.remove("show"), 3000);
+}
+
 editForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   saveResult.textContent = "保存中...";
+
+  // 内部メモは公開ドキュメントから読めない internal サブコレクションへ保存する。
+  // （activities本体は誰でも読めるため。ルール未公開の間は旧方式へフォールバック）
+  const memoText = editAdminComment.value.trim();
+  let memoPrivate = true;
+  try {
+    await setDoc(doc(db, "activities", currentDateStr, "internal", "memo"), {
+      adminComment: memoText,
+    });
+  } catch {
+    memoPrivate = false;
+  }
+
   try {
     await setDoc(
       doc(db, "activities", currentDateStr),
@@ -988,7 +1028,8 @@ editForm.addEventListener("submit", async (e) => {
         notes: editNotes.value.trim(),
         parking: editParking.checked,
         participants: parseInt(editParticipants.value) || 0,
-        adminComment: editAdminComment.value.trim(),
+        // internalへ保存できたら公開側の旧データは消す（移行）。できない間は旧方式で保存
+        adminComment: memoPrivate ? deleteField() : memoText,
         cityParticipants: editCityParticipants,
         rescheduleDate: currentStatus === "延期" ? (editRescheduleDate.value || null) : null,
       },
@@ -1024,16 +1065,22 @@ editForm.addEventListener("submit", async (e) => {
 
   editModal.classList.add("hidden");
   renderCalendar();
+  showToast(memoPrivate || !memoText
+    ? `✅ ${currentDateStr} を保存しました`
+    : `✅ 保存しました（⚠️ 内部メモの非公開化にはFirestoreルールの公開が必要です）`);
 });
 
 deleteEventBtn.addEventListener("click", async () => {
   if (!confirm(`${currentDateStr} のデータを削除しますか？\n（カレンダーの日付は残りますがデータが初期化されます）`)) return;
   try {
     await deleteDoc(doc(db, "activities", currentDateStr));
+    // 内部メモも一緒に削除（ルール未公開などで失敗しても本体削除は成立させる）
+    await deleteDoc(doc(db, "activities", currentDateStr, "internal", "memo")).catch(() => {});
   } catch (err) {
     saveResult.textContent = "❌ 削除に失敗しました: " + err.message;
     return;
   }
   editModal.classList.add("hidden");
   renderCalendar();
+  showToast(`🗑️ ${currentDateStr} のデータを削除しました`);
 });
