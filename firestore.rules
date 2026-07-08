@@ -29,5 +29,17 @@ service cloud.firestore {
       allow read: if true;
       allow write: if request.auth != null;
     }
+
+    // ===== 緑地管理システム（別アプリ・同一プロジェクトに相乗り） =====
+    // 予算情報を含む業務データのため、閲覧・書き込みとも職員(ログイン済み)のみ
+    match /ryokuchi_greens/{gsId} {
+      allow read, write: if request.auth != null;
+      match /photos/{photoId} {
+        allow read, write: if request.auth != null;
+      }
+    }
+    match /ryokuchi_settings/{docId} {
+      allow read, write: if request.auth != null;
+    }
   }
 }
