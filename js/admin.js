@@ -99,6 +99,19 @@ const deleteEventBtn = document.getElementById("deleteEventBtn");
 
 const DOW_JA = ["日", "月", "火", "水", "木", "金", "土"];
 
+// スマホで地図がページスクロールを奪わないようにする設定
+// （1本指はページスクロール、地図の操作は2本指。leaflet-gesture-handlingプラグイン使用）
+const MAP_TOUCH_OPTIONS = {
+  gestureHandling: true,
+  gestureHandlingOptions: {
+    text: {
+      touch: "地図を動かすには指2本で操作します",
+      scroll: "地図を拡大縮小するには Ctrl キーを押しながらスクロールします",
+      scrollMac: "地図を拡大縮小するには ⌘ キーを押しながらスクロールします",
+    },
+  },
+};
+
 // ============================================================
 // 認証
 // ============================================================
@@ -138,7 +151,7 @@ onAuthStateChanged(auth, async (user) => {
 function initLocMap() {
   if (locMap) { locMap.invalidateSize(); return; }
   // 新座市中心座標
-  locMap = L.map("loc-map").setView([35.7768, 139.5703], 14);
+  locMap = L.map("loc-map", MAP_TOUCH_OPTIONS).setView([35.7768, 139.5703], 14);
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     attribution: "&copy; OpenStreetMap contributors",
   }).addTo(locMap);
@@ -953,7 +966,7 @@ async function openEdit(dateStr) {
 function initAdminMap(location) {
   const center = location ? [location.lat, location.lng] : [35.7768, 139.5703];
   if (!adminMap) {
-    adminMap = L.map("admin-map").setView(center, location ? 16 : 13);
+    adminMap = L.map("admin-map", MAP_TOUCH_OPTIONS).setView(center, location ? 16 : 13);
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: "&copy; OpenStreetMap contributors",
     }).addTo(adminMap);

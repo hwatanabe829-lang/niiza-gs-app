@@ -6,6 +6,7 @@
 <title>管理者画面 | 新座市グリーンサポーター</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet-gesture-handling@1.2.2/dist/leaflet-gesture-handling.min.css" />
 </head>
 <body>
 <header class="app-header">
@@ -84,7 +85,7 @@
           <div class="field">
             <label>地図をクリックして場所を指定</label>
             <div id="loc-map" style="height:240px; border-radius:6px; border:1px solid var(--border);"></div>
-            <p class="help-text" style="margin-top:4px;">地図をクリックすると緯度・経度が自動でセットされます。ピンチ/スクロールで拡大できます。</p>
+            <p class="help-text" style="margin-top:4px;">地図をタップすると緯度・経度が自動でセットされます。スマホでは指2本で地図を動かせます。</p>
           </div>
           <div class="btn-row">
             <button type="submit" class="btn">リストに追加</button>
@@ -265,6 +266,7 @@
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-gesture-handling@1.2.2/dist/leaflet-gesture-handling.min.js"></script>
 <script type="module" src="js/admin.js"></script>
 
 <script>

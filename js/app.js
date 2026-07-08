@@ -60,6 +60,19 @@ let marker = null;
 let currentDateStr = null;
 let weatherCache = new Map(); // dateStr → {max, min, code}
 
+// スマホで地図がページスクロールを奪わないようにする設定
+// （1本指はページスクロール、地図の操作は2本指。leaflet-gesture-handlingプラグイン使用）
+const MAP_TOUCH_OPTIONS = {
+  gestureHandling: true,
+  gestureHandlingOptions: {
+    text: {
+      touch: "地図を動かすには指2本で操作します",
+      scroll: "地図を拡大縮小するには Ctrl キーを押しながらスクロールします",
+      scrollMac: "地図を拡大縮小するには ⌘ キーを押しながらスクロールします",
+    },
+  },
+};
+
 const DOW_JA = ["日", "月", "火", "水", "木", "金", "土"];
 
 function weatherEmoji(code) {
@@ -496,7 +509,7 @@ function renderMap(location) {
   mapEl.style.display = location?.lat ? "" : "none";
   if (!location?.lat) return;
   if (!map) {
-    map = L.map("map");
+    map = L.map("map", MAP_TOUCH_OPTIONS);
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: "&copy; OpenStreetMap contributors",
     }).addTo(map);
