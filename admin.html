@@ -46,11 +46,17 @@
 
     <!-- ===== カレンダータブ ===== -->
     <div id="tab-calendar" class="tab-pane">
-      <p class="notice">
-        活動日（緑）をクリックすると情報を編集できます。<br>
-        「初回セットアップ」を押すと令和8年度の活動予定日を一括登録します。
+      <button class="btn btn-big" id="quickTodayBtn">📝 今日・次回の活動をすぐ入力</button>
+      <p class="notice" style="margin-top:12px;">
+        活動日（緑）をクリックすると情報を編集できます。
       </p>
-      <button class="btn" id="setupBtn">初回セットアップ（令和8年度の活動日を一括登録）</button>
+      <div class="setup-row">
+        <select id="setupYearSelect"></select>
+        <button class="btn secondary" id="setupBtn">この年度の活動日を一括登録</button>
+      </div>
+      <p class="help-text">
+        緑地・活動内容などの設定は年度が替わっても自動で引き継がれます。新年度になったら年度を選んで登録ボタンを押すだけでOKです。
+      </p>
       <p class="help-text" id="setupResult"></p>
       <div class="calendar-nav">
         <button id="prevMonthBtn">&lt; 前月</button>
@@ -176,13 +182,13 @@
 
     <form id="editForm">
       <div class="field">
-        <label for="editStatus">活動状況</label>
-        <select id="editStatus">
-          <option value="予定">予定</option>
-          <option value="実施">実施（完了）</option>
-          <option value="中止">中止（雨天等）</option>
-          <option value="延期">延期（振替あり）</option>
-        </select>
+        <label>活動状況（タップで選択）</label>
+        <div class="status-btn-group" id="statusBtnGroup">
+          <button type="button" class="status-btn" data-status="予定">📅 予定</button>
+          <button type="button" class="status-btn" data-status="実施">✅ 実施</button>
+          <button type="button" class="status-btn" data-status="中止">🌧️ 中止</button>
+          <button type="button" class="status-btn" data-status="延期">🔄 延期</button>
+        </div>
       </div>
 
       <div class="field hidden" id="rescheduleField">

@@ -5,7 +5,7 @@ import {
   signOut,
   onAuthStateChanged,
   setPersistence,
-  inMemoryPersistence,
+  browserLocalPersistence,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
   getFirestore,
@@ -20,6 +20,10 @@ import { fetchMonthActivities, fetchActivityIdsInRange } from "./store.js";
 import {
   getFiscalYearActivityDates,
   getFiscalYearMonths,
+  getActivityDatesForFiscalYear,
+  getAvailableFiscalYears,
+  getFiscalYear,
+  fiscalYearLabel,
   formatDate,
   WEEKDAY_LABELS,
 } from "./calendar.js";
@@ -29,8 +33,9 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// 管理ページを開くたびに毎回ログインが必要（セッションを保持しない）
-setPersistence(auth, inMemoryPersistence);
+// 各職員の端末ごとにログイン状態を保持する
+// （現場で開くたびにパスワードを入れ直さなくて済むように。ログアウトボタンで解除可能）
+setPersistence(auth, browserLocalPersistence);
 
 const activityDates = new Set(getFiscalYearActivityDates());
 const months = getFiscalYearMonths();
@@ -38,7 +43,12 @@ const today = new Date();
 let monthIndex = months.findIndex(
   (m) => m.year === today.getFullYear() && m.month === today.getMonth() + 1
 );
-if (monthIndex === -1) monthIndex = 0;
+// 今月が表示範囲外の場合: 運用開始前なら最初の月、終了後なら最後の月を表示
+if (monthIndex === -1) {
+  const beforeStart =
+    today < new Date(months[0].year, months[0].month - 1, 1);
+  monthIndex = beforeStart ? 0 : months.length - 1;
+}
 
 // 設定キャッシュ
 let locationsList = [];    // [{id, name, lat, lng}]
@@ -72,7 +82,7 @@ const editModal = document.getElementById("editModal");
 const closeEditBtn = document.getElementById("closeEditBtn");
 const editDate = document.getElementById("editDate");
 const editForm = document.getElementById("editForm");
-const editStatus = document.getElementById("editStatus");
+const statusBtnGroup = document.getElementById("statusBtnGroup");
 const editLocationSelect = document.getElementById("editLocationSelect");
 const editLocationName = document.getElementById("editLocationName");
 const editActivityTypeSelect = document.getElementById("editActivityTypeSelect");
@@ -330,8 +340,15 @@ document.getElementById("locationForm").addEventListener("submit", async (e) => 
   }
 });
 
-editStatus.addEventListener("change", () => {
-  if (editStatus.value === "延期") {
+// 活動状況: 現場でも迷わないよう大きなボタンで選択する
+let currentStatus = "予定";
+
+function setStatus(status) {
+  currentStatus = status;
+  statusBtnGroup.querySelectorAll(".status-btn").forEach((b) => {
+    b.classList.toggle("active", b.dataset.status === status);
+  });
+  if (status === "延期") {
     rescheduleField.classList.remove("hidden");
     if (!editRescheduleDate.value && currentDateStr) {
       const next = new Date(currentDateStr + "T00:00:00");
@@ -341,6 +358,11 @@ editStatus.addEventListener("change", () => {
   } else {
     rescheduleField.classList.add("hidden");
   }
+}
+
+statusBtnGroup.addEventListener("click", (e) => {
+  const btn = e.target.closest(".status-btn");
+  if (btn) setStatus(btn.dataset.status);
 });
 
 editLocationSelect.addEventListener("change", (e) => {
@@ -799,14 +821,24 @@ nextBtn.addEventListener("click", () => {
 });
 
 // ============================================================
-// 初回セットアップ
+// 年度セットアップ（緑地などの設定は年度をまたいで共通なので、活動日だけ登録すればよい）
 // ============================================================
+const setupYearSelect = document.getElementById("setupYearSelect");
+getAvailableFiscalYears().forEach((fy) => {
+  const opt = document.createElement("option");
+  opt.value = fy;
+  opt.textContent = fiscalYearLabel(fy);
+  setupYearSelect.appendChild(opt);
+});
+setupYearSelect.value = getFiscalYear();
+
 setupBtn.addEventListener("click", async () => {
   setupResult.textContent = "登録中...";
   setupBtn.disabled = true;
+  const fy = parseInt(setupYearSelect.value);
   try {
     // 既存分を1クエリで確認し、足りない日だけバッチで一括登録する
-    const dates = [...activityDates].sort();
+    const dates = getActivityDatesForFiscalYear(fy);
     const existing = await fetchActivityIdsInRange(db, dates[0], dates[dates.length - 1]);
     const missing = dates.filter((d) => !existing.has(d));
     if (missing.length > 0) {
@@ -826,13 +858,36 @@ setupBtn.addEventListener("click", async () => {
       });
       await batch.commit();
     }
-    setupResult.textContent = `完了: ${missing.length}件の活動日を新規登録しました（対象 全${activityDates.size}件）。`;
+    setupResult.textContent = `完了: ${fiscalYearLabel(fy)}の活動日 ${missing.length}件を新規登録しました（対象 全${dates.length}件）。`;
     renderCalendar();
   } catch (err) {
     setupResult.textContent = "❌ 登録に失敗しました: " + err.message;
   } finally {
     setupBtn.disabled = false;
   }
+});
+
+// ============================================================
+// 今日・次回の活動をすぐ入力（現場でのワンタップ入力用）
+// ============================================================
+document.getElementById("quickTodayBtn").addEventListener("click", () => {
+  const todayStr = formatDate(new Date());
+  const sorted = [...activityDates].sort();
+  const target = activityDates.has(todayStr)
+    ? todayStr
+    : sorted.find((d) => d > todayStr);
+  if (!target) {
+    alert("今後の活動日が見つかりません。年度の一括登録を行ってください。");
+    return;
+  }
+  // カレンダーの表示月も対象日に合わせる
+  const [y, m] = target.split("-").map(Number);
+  const idx = months.findIndex((mm) => mm.year === y && mm.month === m);
+  if (idx !== -1 && idx !== monthIndex) {
+    monthIndex = idx;
+    renderCalendar();
+  }
+  openEdit(target);
 });
 
 // ============================================================
@@ -853,7 +908,6 @@ async function openEdit(dateStr) {
   const snap = await getDoc(doc(db, "activities", dateStr));
   const data = snap.exists() ? snap.data() : {};
 
-  editStatus.value = data.status || "予定";
   editLocationName.value = data.location?.name || "";
   // 活動内容：配列(contentList)優先、旧string(content)は配列に変換
   if (Array.isArray(data.contentList) && data.contentList.length > 0) {
@@ -872,16 +926,7 @@ async function openEdit(dateStr) {
     : data.cityParticipants ? [data.cityParticipants] : [];
   renderEditCityParticipantList();
   editRescheduleDate.value = data.rescheduleDate || "";
-  if (data.status === "延期") {
-    rescheduleField.classList.remove("hidden");
-    if (!editRescheduleDate.value) {
-      const next = new Date(dateStr + "T00:00:00");
-      next.setDate(next.getDate() + 1);
-      editRescheduleDate.value = formatDate(next);
-    }
-  } else {
-    rescheduleField.classList.add("hidden");
-  }
+  setStatus(data.status || "予定");
 
   currentLocation = data.location?.lat
     ? { lat: data.location.lat, lng: data.location.lng }
@@ -932,7 +977,7 @@ editForm.addEventListener("submit", async (e) => {
       doc(db, "activities", currentDateStr),
       {
         date: currentDateStr,
-        status: editStatus.value,
+        status: currentStatus,
         location: {
           name: editLocationName.value.trim(),
           lat: currentLocation?.lat ?? null,
@@ -945,13 +990,13 @@ editForm.addEventListener("submit", async (e) => {
         participants: parseInt(editParticipants.value) || 0,
         adminComment: editAdminComment.value.trim(),
         cityParticipants: editCityParticipants,
-        rescheduleDate: editStatus.value === "延期" ? (editRescheduleDate.value || null) : null,
+        rescheduleDate: currentStatus === "延期" ? (editRescheduleDate.value || null) : null,
       },
       { merge: true }
     );
 
     // 延期の場合、振替日のイベントを自動作成（まだ存在しない場合）
-    const rDate = editStatus.value === "延期" ? editRescheduleDate.value : null;
+    const rDate = currentStatus === "延期" ? editRescheduleDate.value : null;
     if (rDate) {
       const rRef = doc(db, "activities", rDate);
       const rSnap = await getDoc(rRef);

@@ -29,7 +29,12 @@ const today = new Date();
 let monthIndex = months.findIndex(
   (m) => m.year === today.getFullYear() && m.month === today.getMonth() + 1
 );
-if (monthIndex === -1) monthIndex = 0;
+// 今月が表示範囲外の場合: 運用開始前なら最初の月、終了後なら最後の月を表示
+if (monthIndex === -1) {
+  const beforeStart =
+    today < new Date(months[0].year, months[0].month - 1, 1);
+  monthIndex = beforeStart ? 0 : months.length - 1;
+}
 
 const calendarGrid = document.getElementById("calendarGrid");
 const monthLabel = document.getElementById("monthLabel");

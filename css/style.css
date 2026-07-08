@@ -295,7 +295,45 @@ form textarea { resize: vertical; min-height: 65px; }
 .btn.danger { background: var(--red); }
 .btn.danger:hover { background: #b71c1c; }
 .btn.btn-sm { padding: 4px 10px; font-size: 0.78rem; }
+.btn.btn-big { width: 100%; padding: 14px 16px; font-size: 1.05rem; font-weight: bold; }
 .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+
+/* 活動状況の選択ボタン（現場でタップしやすい大きめサイズ） */
+.status-btn-group {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+.status-btn {
+  border: 2px solid var(--border);
+  background: #fff;
+  border-radius: 8px;
+  padding: 11px 4px;
+  font-size: 0.92rem;
+  font-weight: bold;
+  color: var(--gray);
+  cursor: pointer;
+}
+.status-btn.active { color: #fff; }
+.status-btn.active[data-status="予定"] { background: var(--green); border-color: var(--green); }
+.status-btn.active[data-status="実施"] { background: var(--blue); border-color: var(--blue); }
+.status-btn.active[data-status="中止"] { background: var(--red); border-color: var(--red); }
+.status-btn.active[data-status="延期"] { background: var(--orange); border-color: var(--orange); }
+
+/* 年度セットアップ行 */
+.setup-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+.setup-row select {
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.92rem;
+}
 
 /* 感想一覧 */
 .feedback-list { list-style: none; padding: 0; margin: 6px 0 0; }
@@ -458,6 +496,32 @@ form textarea { resize: vertical; min-height: 65px; }
   gap: 8px;
 }
 .guide-content a:hover { background: var(--green-light); }
+
+/* スマホ最適化（現場での入力を想定） */
+@media (max-width: 600px) {
+  /* 16px未満だとiOSで入力時に画面が勝手にズームされるため */
+  form input[type="text"],
+  form input[type="email"],
+  form input[type="password"],
+  form input[type="number"],
+  form input[type="date"],
+  form textarea,
+  form select,
+  .setup-row select {
+    font-size: 16px;
+    padding: 10px;
+  }
+  .btn { padding: 12px 16px; font-size: 1rem; }
+  .btn.btn-sm { padding: 8px 12px; font-size: 0.85rem; }
+  .status-btn-group { grid-template-columns: repeat(2, 1fr); }
+  .status-btn { padding: 14px 4px; font-size: 1.05rem; }
+  .modal-overlay { padding: 6px; align-items: flex-start; }
+  .modal { padding: 14px; max-height: 96dvh; }
+  .modal .close-btn { font-size: 1.8rem; padding: 4px 10px; }
+  .day-cell { min-height: 62px; padding: 2px 3px; font-size: 0.7rem; }
+  .calendar-nav button { padding: 10px 14px; }
+  main { padding: 10px; }
+}
 
 /* フッター */
 .site-footer {
